@@ -1,50 +1,29 @@
-import React, { useState, useEffect } from 'react';
+// src/components/main-function/history.js
+
+import React from 'react';
+import { useHistory } from '../../context/HistoryContext';
 import { formatTime } from './time';
 
-const HISTORY_STORAGE_KEY = 'genericGameHistory';
-
-export const saveGameToHistory = (gameData) => {
-    try {
-        const history = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY)) || [];
-        const newRecord = {
-            id: Date.now(),
-            date: new Date().toLocaleString('vi-VN'),
-            ...gameData
-        };
-        history.unshift(newRecord);
-        if (history.length > 20) {
-            history.pop();
-        }
-        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
-    } catch (error) {
-        console.error("Không thể lưu lịch sử game:", error);
+// Một hàm trợ giúp nhỏ để render kết quả cho đẹp hơn
+const getResultClass = (result) => {
+    switch (result) {
+        case 'Thắng':
+            return 'text-green-400';
+        case 'Thua':
+            return 'text-red-400';
+        case 'Hòa':
+            return 'text-yellow-400';
+        default:
+            return 'text-white';
     }
-};
-
-export const getGameHistory = () => {
-    try {
-        return JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY)) || [];
-    } catch (error) {
-        console.error("Không thể lấy lịch sử game:", error);
-        return [];
-    }
-};
-
-export const clearGameHistory = () => {
-    localStorage.removeItem(HISTORY_STORAGE_KEY);
 };
 
 export const HistoryDisplay = ({ onBack }) => {
-    const [history, setHistory] = useState([]);
-
-    useEffect(() => {
-        setHistory(getGameHistory());
-    }, []);
+    const { history, clearHistory } = useHistory();
 
     const handleClearHistory = () => {
         if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử không?")) {
-            clearGameHistory();
-            setHistory([]);
+            clearHistory();
         }
     };
 
@@ -68,15 +47,35 @@ export const HistoryDisplay = ({ onBack }) => {
                 <div className="space-y-4">
                     {history.map((game) => (
                         <div key={game.id} className="bg-gray-700 p-4 rounded-lg flex items-center gap-4">
-                            {game.imageSrc && <img src={game.imageSrc} alt="Game thumbnail" className="w-24 h-24 object-cover rounded-md" />}
+                            {/* Phần ảnh và thông tin chung */}
+                            <img 
+                                src={game.imageSrc || '/default-game-thumbnail.png'} 
+                                alt="Game thumbnail" 
+                                className="w-24 h-24 object-cover rounded-md flex-shrink-0" 
+                            />
                             <div className="flex-grow">
                                 <p className="font-bold text-lg text-gray-200">{game.gameName || 'Game'}</p>
                                 <p className="text-sm text-gray-400">{game.date}</p>
                                 <p className="text-gray-300">Độ khó: {game.difficulty}</p>
                             </div>
-                            <div className="text-right">
-                                <p className="text-gray-300">Số bước: <span className="font-semibold text-white">{game.moves}</span></p>
-                                <p className="text-gray-300">Thời gian: <span className="font-semibold text-white">{formatTime(game.timeInSeconds)}</span></p>
+
+                            {/* Phần hiển thị kết quả - THAY ĐỔI Ở ĐÂY */}
+                            <div className="text-right w-48 flex-shrink-0">
+                                {game.hasOwnProperty('result') ? (
+                                    // Nếu là game có kết quả Thắng/Thua (như Caro)
+                                    <div>
+                                        <p className="text-gray-300 text-lg">Kết quả</p>
+                                        <p className={`font-bold text-2xl ${getResultClass(game.result)}`}>
+                                            {game.result}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    // Nếu là game tính điểm/thời gian (như Sudoku, Puzzle)
+                                    <div>
+                                        <p className="text-gray-300">Số bước: <span className="font-semibold text-white">{game.moves}</span></p>
+                                        <p className="text-gray-300">Thời gian: <span className="font-semibold text-white">{formatTime(game.timeInSeconds)}</span></p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}

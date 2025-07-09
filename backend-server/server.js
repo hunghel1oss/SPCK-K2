@@ -1,80 +1,203 @@
-// file: backend-server/server.js
-
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
-const { WebSocketServer } = require('ws');
+const url = require('url');
+const { WebSocketServer, WebSocket } = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ noServer: true });
 
-app.use(cors()); // Cho phép tất cả các request từ domain khác (ví dụ: từ app Vite)
-app.use(express.json()); // Đọc body của request dưới dạng JSON
+app.use(cors());
+app.use(express.json());
 
-// Cơ sở dữ liệu "trong bộ nhớ" đơn giản
-const users = {}; // Lưu trữ: { username: { password, apiKey } }
+const users = {};
+const clients = new Map();
+const caroGames = {};
+let waitingPlayer = null;
 
-// API Endpoint: /api/register
 app.post('/api/register', (req, res) => {
     const { username, password } = req.body;
-    if (!username || !password) {
-        return res.status(400).json({ message: 'Tên đăng nhập và mật khẩu là bắt buộc' });
-    }
-    if (users[username]) {
-        return res.status(400).json({ message: 'Tên đăng nhập đã tồn tại' });
-    }
-
+    if (!username || !password) return res.status(400).json({ message: 'Tên đăng nhập và mật khẩu là bắt buộc' });
+    if (users[username]) return res.status(400).json({ message: 'Tên đăng nhập đã tồn tại' });
     const apiKey = uuidv4();
     users[username] = { password, apiKey };
-
     console.log('Người dùng đã đăng ký:', username);
     res.status(201).json({ username, apiKey });
 });
 
-// API Endpoint: /api/login
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     const user = users[username];
-
-    if (!user || user.password !== password) {
-        return res.status(401).json({ message: 'Tên đăng nhập hoặc mật khẩu không đúng' });
-    }
-
+    if (!user || user.password !== password) return res.status(401).json({ message: 'Tên đăng nhập hoặc mật khẩu không đúng' });
     console.log('Người dùng đã đăng nhập:', username);
     res.status(200).json({ username, apiKey: user.apiKey });
 });
 
-// Xử lý kết nối WebSocket
-wss.on('connection', (ws, req) => {
-    // Lấy apiKey từ URL query
-    const urlParams = new URLSearchParams(req.url.slice(1));
-    const apiKey = urlParams.get('apiKey');
+function checkWin(board, playerSymbol) {
+    const size = 10; const winLength = 5;
+    const checkLine = (line) => { let count = 0; for (const cell of line) { if (cell === playerSymbol) { count++; if (count >= winLength) return true; } else { count = 0; } } return false; };
+    const getWinningLine = (line, startIndex, step) => { let count = 0; let startWinIndex = -1; for (let i = 0; i < line.length; i++) { if (line[i] === playerSymbol) { if (count === 0) startWinIndex = i; count++; if (count >= winLength) { const winningLine = []; for (let j = 0; j < winLength; j++) { winningLine.push(startIndex + (startWinIndex + j) * step); } return winningLine; } } else { count = 0; startWinIndex = -1; } } return null; };
+    for (let r = 0; r < size; r++) { const row = board.slice(r * size, r * size + size); const winningRow = getWinningLine(row, r * size, 1); if (winningRow) return winningRow; }
+    for (let c = 0; c < size; c++) { const col = []; for (let r = 0; r < size; r++) col.push(board[r * size + c]); const winningCol = getWinningLine(col, c, size); if (winningCol) return winningCol; }
+    for (let r = 0; r <= size - winLength; r++) { for (let c = 0; c <= size - winLength; c++) { const diag1 = []; for (let i = 0; i < winLength; i++) diag1.push(board[(r + i) * size + (c + i)]); if (checkLine(diag1)) { const winningDiag = []; for (let i = 0; i < winLength; i++) winningDiag.push((r + i) * size + (c + i)); return winningDiag; } } }
+    for (let r = 0; r <= size - winLength; r++) { for (let c = winLength - 1; c < size; c++) { const diag2 = []; for (let i = 0; i < winLength; i++) diag2.push(board[(r + i) * size + (c - i)]); if (checkLine(diag2)) { const winningDiag = []; for (let i = 0; i < winLength; i++) winningDiag.push((r + i) * size + (c - i)); return winningDiag; } } }
+    return null;
+}
 
-    const user = Object.values(users).find(u => u.apiKey === apiKey);
+server.on('upgrade', (request, socket, head) => {
+    const { query } = url.parse(request.url, true);
+    const apiKey = query.apiKey;
+    const user = Object.keys(users).find(username => users[username].apiKey === apiKey);
 
     if (!user) {
-        console.log('[WebSocket] Kết nối bị từ chối: apiKey không hợp lệ.');
-        ws.close();
+        socket.destroy();
         return;
     }
+    
+    wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request, user);
+    });
+});
 
-    console.log('[WebSocket] Một client đã kết nối thành công.');
+wss.on('connection', (ws, request, user) => {
+    ws.username = user;
+    clients.set(user, ws);
+    console.log(`[CONNECTION] Client ${user} connected.`);
 
     ws.on('message', (message) => {
-        console.log(`[WebSocket] Nhận được message: ${message}`);
-        // Gửi lại message cho client để test
-        ws.send(`Server đã nhận: ${message}`);
+        try {
+            const { type, payload } = JSON.parse(message);
+            const currentUsername = ws.username;
+            if (!currentUsername) return;
+
+            if (type === 'caro:find_match' && payload) {
+                const { matchmakingId } = payload;
+
+                if (waitingPlayer && waitingPlayer.user !== currentUsername) {
+                    const player1_username = waitingPlayer.user;
+                    const player2_username = currentUsername;
+                    
+                    const player1_ws = clients.get(player1_username);
+                    const player2_ws = ws;
+
+                    if (!player1_ws || player1_ws.readyState !== WebSocket.OPEN) {
+                        waitingPlayer = { user: currentUsername, matchmakingId };
+                        player2_ws.send(JSON.stringify({ type: 'caro:waiting', payload: { matchmakingId }}));
+                        return;
+                    }
+
+                    const roomId = `caro_${uuidv4()}`;
+                    const game = {
+                        players: [
+                            { username: player1_username, symbol: 'X' },
+                            { username: player2_username, symbol: 'O' }
+                        ],
+                        board: Array(100).fill(null),
+                        currentPlayerSymbol: 'X',
+                        status: 'playing',
+                    };
+                    caroGames[roomId] = game;
+
+                    player1_ws.roomId = roomId;
+                    player2_ws.roomId = roomId;
+
+                    console.log(`[ACTION] Match found! Room: ${roomId}. Players: ${player1_username} (X) vs ${player2_username} (O)`);
+                    player1_ws.send(JSON.stringify({ type: 'caro:game_start', payload: { isMyTurn: true, mySymbol: 'X', board: game.board, opponent: player2_username } }));
+                    player2_ws.send(JSON.stringify({ type: 'caro:game_start', payload: { isMyTurn: false, mySymbol: 'O', board: game.board, opponent: player1_username } }));
+                    
+                    waitingPlayer = null;
+                } else {
+                    waitingPlayer = { user: currentUsername, matchmakingId };
+                    ws.send(JSON.stringify({ type: 'caro:waiting', payload: { matchmakingId } }));
+                }
+            } else if (type === 'caro:leave' && payload) {
+                if (waitingPlayer && waitingPlayer.matchmakingId === payload.matchmakingId) {
+                    waitingPlayer = null;
+                }
+            } else if (ws.roomId && caroGames[ws.roomId]) {
+                const game = caroGames[ws.roomId];
+                const playerInfo = game.players.find(p => p.username === currentUsername);
+                if (!playerInfo) return;
+
+                if (type === 'caro:move' && payload) {
+                    if (playerInfo.symbol === game.currentPlayerSymbol && !game.board[payload.index] && game.status === 'playing') {
+                        game.board[payload.index] = playerInfo.symbol;
+                        const winningLine = checkWin(game.board, playerInfo.symbol);
+                        
+                        if (winningLine) { 
+                            game.status = 'finished';
+                            game.winner = playerInfo.symbol; 
+                        } else if (game.board.every(cell => cell !== null)) { 
+                            game.status = 'finished'; 
+                        } else { 
+                            game.currentPlayerSymbol = game.currentPlayerSymbol === 'X' ? 'O' : 'X'; 
+                        }
+                        
+                        game.players.forEach(p => {
+                            const playerWs = clients.get(p.username);
+                            if (playerWs && playerWs.readyState === WebSocket.OPEN) {
+                                playerWs.send(JSON.stringify({ 
+                                    type: 'caro:update', 
+                                    payload: { 
+                                        board: game.board, 
+                                        isMyTurn: p.symbol === game.currentPlayerSymbol && game.status === 'playing', 
+                                        status: game.status, 
+                                        winner: game.winner || null, 
+                                        winningLine: winningLine || [] 
+                                    } 
+                                }));
+                            }
+                        });
+                    }
+                } else if (type === 'caro:rematch') {
+                    if(game.status === 'finished') {
+                        game.board = Array(100).fill(null);
+                        game.currentPlayerSymbol = 'X';
+                        game.status = 'playing';
+                        game.winner = null;
+                        
+                        game.players.forEach(p => {
+                            const playerWs = clients.get(p.username);
+                            if (playerWs && playerWs.readyState === WebSocket.OPEN) {
+                                playerWs.send(JSON.stringify({ type: 'caro:game_start', payload: { isMyTurn: p.symbol === 'X', mySymbol: p.symbol, board: game.board, opponent: game.players.find(op => op.username !== p.username).username } }));
+                            }
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[WebSocket] Error processing message:', error);
+        }
     });
 
     ws.on('close', () => {
-        console.log('[WebSocket] Một client đã ngắt kết nối.');
+        const username = ws.username || 'Unknown';
+        console.log(`[DISCONNECT] Client ${username} disconnected.`);
+        
+        clients.delete(username);
+
+        if (waitingPlayer && waitingPlayer.user === username) {
+            waitingPlayer = null;
+        }
+        
+        if (ws.roomId && caroGames[ws.roomId]) {
+            const game = caroGames[ws.roomId];
+            const opponentInfo = game.players.find(p => p.username !== username);
+            if (opponentInfo) {
+                const opponentWs = clients.get(opponentInfo.username);
+                if (opponentWs && opponentWs.readyState === WebSocket.OPEN) {
+                    opponentWs.send(JSON.stringify({ type: 'caro:error', payload: { message: 'Đối thủ đã thoát!' } }));
+                    opponentWs.roomId = null;
+                }
+            }
+            delete caroGames[ws.roomId];
+        }
     });
 });
 
 const PORT = 8080;
 server.listen(PORT, () => {
-    console.log(`Backend server đang chạy trên cổng ${PORT}`);
-    console.log('Các user hiện tại (chỉ để debug):', users);
+    console.log(`Server (HTTP & WebSocket) is running on port ${PORT}`);
 });

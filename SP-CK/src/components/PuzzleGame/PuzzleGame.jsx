@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTimer, formatTime } from '../main-function/time';
-import { saveGameToHistory } from '../main-function/history';
+import { useHistory } from '../../context/HistoryContext';
+import { useAuth } from '../../context/AuthContext';
 import ImageUploader from './ImageUploader';
 import DifficultySelector from './DifficultySelector';
 import PuzzleBoard from './PuzzleBoard';
@@ -27,6 +28,8 @@ const PuzzleGame = () => {
     const [moveCount, setMoveCount] = useState(0);
 
     const { time, startTimer, stopTimer, resetTimer } = useTimer();
+    const { saveGameForUser } = useHistory();
+    const { apiKey } = useAuth();
     
     const boardSize = 500;
 
@@ -57,7 +60,8 @@ const PuzzleGame = () => {
     const handlePieceMove = ({ pieceId, origin, fromSlotIndex, toSlotIndex }) => {
         if (isSolved) return;
         
-        setMoveCount(prev => prev + 1);
+        const currentMoveCount = moveCount + 1;
+        setMoveCount(currentMoveCount);
 
         let newBoardSlots = [...boardSlots];
         let newTrayPieces = [...trayPieces];
@@ -86,13 +90,15 @@ const PuzzleGame = () => {
             stopTimer();
             setIsSolved(true);
 
-            saveGameToHistory({
-                gameName: 'Jigsaw Puzzle',
-                imageSrc: image.src,
-                difficulty: `${difficulty}x${difficulty}`,
-                moves: moveCount + 1,
-                timeInSeconds: time,
-            });
+            if (apiKey) {
+                saveGameForUser(apiKey, {
+                    gameName: 'Jigsaw Puzzle',
+                    imageSrc: image.src,
+                    difficulty: `${difficulty}x${difficulty}`,
+                    moves: currentMoveCount,
+                    timeInSeconds: time,
+                });
+            }
         }
     };
     

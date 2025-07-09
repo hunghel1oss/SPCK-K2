@@ -2,19 +2,15 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
+import { HistoryProvider } from './context/HistoryContext';
 import './index.css';
-import './App.css';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Không tìm thấy root element để gắn ứng dụng React");
-}
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
+ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  </React.StrictMode>
+    <HistoryProvider>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </HistoryProvider>
+  </React.StrictMode>,
 );

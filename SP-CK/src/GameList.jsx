@@ -1,6 +1,4 @@
-import SudokuGame from './components/sodoku/SudokuGame.jsx';
-import PuzzleGame from './components/PuzzleGame/PuzzleGame.jsx';
-
+import React from 'react';
 
 export const gameList = [
     {
@@ -8,14 +6,20 @@ export const gameList = [
         name: 'Sudoku',
         description: 'Thử thách trí tuệ với những con số.',
         imageSrc: './img/SudokuImg.png', 
-        Component: SudokuGame 
+        Component: React.lazy(() => import('../src/components/sodoku/SudokuGame.jsx')) // Giả định bạn tạo SudokuPage.jsx
     },
     {
         key: 'puzzle-game',
         name: 'Xếp hình',
         description: 'Kéo và thả để hoàn thành bức tranh.',
         imageSrc: './img/PuzzleGameImg.jpg',
-        Component: PuzzleGame 
+        Component: React.lazy(() => import('../src/components/PuzzleGame/PuzzleGame.jsx')) 
     },
- 
+    {
+        key: 'caro',
+        name: 'Cờ Caro',
+        description: 'Đánh bại đối thủ bằng cách tạo thành 1 hàng 5',
+        imageSrc: './img/caro.jpg',
+        Component: React.lazy(() => import('./pages/CaroPage.jsx'))
+    }
 ];

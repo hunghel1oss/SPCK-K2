@@ -1,6 +1,7 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import * as api from '../services/api';
 import * as websocketService from '../services/websocketService';
+import { useHistory } from './HistoryContext';
 
 const AuthContext = createContext(null);
 
@@ -8,17 +9,19 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [apiKey, setApiKey] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const { loadHistoryForUser } = useHistory();
 
-    const initAuth = useCallback(() => {
+    useEffect(() => {
         setIsLoading(true);
         try {
             const storedApiKey = localStorage.getItem('apiKey');
             const storedUser = localStorage.getItem('user');
+
             if (storedApiKey && storedUser) {
                 const parsedUser = JSON.parse(storedUser);
+                setUser({ username: parsedUser.username });
                 setApiKey(storedApiKey);
-                setUser(parsedUser);
-                websocketService.connect(storedApiKey);
+                loadHistoryForUser(storedApiKey);
             }
         } catch (error) {
             console.error("Lỗi khi khởi tạo xác thực:", error);
@@ -26,43 +29,33 @@ export const AuthProvider = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [loadHistoryForUser]);
 
-    useEffect(() => {
-        initAuth();
-        return () => {
-            websocketService.disconnect();
-        }
-    }, [initAuth]);
-
-    const login = async (username, password) => {
-        const data = await api.login(username, password);
+    const handleAuthSuccess = (data) => {
         localStorage.setItem('apiKey', data.apiKey);
         localStorage.setItem('user', JSON.stringify({ username: data.username }));
         setUser({ username: data.username });
         setApiKey(data.apiKey);
-        websocketService.connect(data.apiKey);
-        return data;
+        loadHistoryForUser(data.apiKey);
+    };
+
+    const login = async (username, password) => {
+        const data = await api.login(username, password);
+        handleAuthSuccess(data);
     };
 
     const register = async (username, password) => {
         const data = await api.register(username, password);
-        localStorage.setItem('apiKey', data.apiKey);
-        localStorage.setItem('user', JSON.stringify({ username: data.username }));
-        setUser({ username: data.username });
-        setApiKey(data.apiKey);
-        websocketService.connect(data.apiKey);
-        return data;
+        handleAuthSuccess(data);
     };
 
     const logout = () => {
-        setUser(null);
-        setApiKey(null);
+        websocketService.disconnect();
         localStorage.removeItem('apiKey');
         localStorage.removeItem('user');
-        websocketService.disconnect();
-        // Tải lại trang để đảm bảo mọi trạng thái được reset
-        window.location.reload();
+        setUser(null);
+        setApiKey(null);
+        loadHistoryForUser(null);
     };
 
     const value = {

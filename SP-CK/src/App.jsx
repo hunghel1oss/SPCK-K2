@@ -1,14 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useAuth } from './context/AuthContext';
-import AuthPage from './pages/AuthPage';
-
-import Header  from './components/header.jsx'
-import Hero from './components/hero.jsx'
+import LoginSignUpForm from './components/login/login.jsx';
+import Header from './components/header.jsx';
+import Hero from './components/hero.jsx';
 import { HistoryDisplay } from './components/main-function/history';
 import { gameList } from './GameList';
 
-// Placeholder cho GameLibrary và GameCard, vì chúng không có trong cấu trúc thư mục ban đầu
-// nhưng được tham chiếu. Bạn có thể tạo file cho chúng.
 const GameCard = ({ game, onPlay }) => (
     <div className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg transition-transform transform hover:scale-105" onClick={() => onPlay(game.key)}>
         <img src={game.imageSrc} alt={game.name} className="w-full h-48 object-cover" />
@@ -40,7 +37,6 @@ const GameLibrary = ({ onPlay }) => (
     </div>
 );
 
-
 function App() {
     const { isAuthenticated, isLoading, user, logout } = useAuth();
     const [currentView, setCurrentView] = useState('home');
@@ -50,7 +46,7 @@ function App() {
     }
 
     if (!isAuthenticated) {
-        return <AuthPage />;
+        return <LoginSignUpForm />;
     }
 
     const navigateTo = (view) => {
@@ -60,8 +56,11 @@ function App() {
     const renderContent = () => {
         const ActiveGameComponent = gameList.find(game => game.key === currentView)?.Component;
         if (ActiveGameComponent) {
-            // Giả sử component game nhận prop onBack để quay lại thư viện
-            return <ActiveGameComponent onBack={() => navigateTo('games')} />;
+            return (
+                <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-white text-2xl">Đang tải Game...</div>}>
+                    <ActiveGameComponent onBack={() => navigateTo('games')} />
+                </Suspense>
+            );
         }
         switch (currentView) {
             case 'games':
@@ -76,7 +75,6 @@ function App() {
 
     return (
         <div className="bg-black text-white min-h-screen">
-            {/* Truyền thêm user và logout vào Header để hiển thị thông tin và chức năng đăng xuất */}
             <Header onNavigate={navigateTo} currentView={currentView} user={user} onLogout={logout} />
             <main>
                 {renderContent()}
