@@ -21,5 +21,12 @@ export const gameList = [
         description: 'Đánh bại đối thủ bằng cách tạo thành 1 hàng 5',
         imageSrc: './img/caro.jpg',
         Component: React.lazy(() => import('./pages/CaroPage.jsx'))
+    },
+    {
+        key: 'battleship',
+        name: 'Bắn Tàu',
+        description: 'Sắp xếp hạm đội và tiêu diệt đối thủ.',
+        imageSrc: '/img/battleship.jpg', 
+        Component: React.lazy(() => import('./pages/BattleshipPage.jsx'))
     }
 ];
