@@ -2,8 +2,10 @@ import React, { useState, Suspense } from 'react';
 import { useAuth } from './context/AuthContext';
 import LoginSignUpForm from './components/login/login.jsx';
 import Header from './components/header.jsx';
-import Hero from './components/hero.jsx';
+import HomePage from './pages/HomePage';
 import { HistoryDisplay } from './components/main-function/history';
+import FriendsPage from './components/FriendsPage/index.jsx';
+import FriendsSidebar from './components/FriendsPage/FriendsSidebar.jsx';
 import { gameList } from './GameList';
 
 const GameCard = ({ game, onPlay }) => (
@@ -24,18 +26,15 @@ const GameLibrary = ({ onPlay }) => (
     <div className="w-full bg-gray-900 min-h-screen p-8">
         <div className="max-w-7xl mx-auto">
             <h2 className="text-4xl font-bold text-white mb-8 text-center">Thư Viện Game</h2>
-            {gameList.length === 0 ? (
-                <p className="text-center text-gray-400">Chưa có game nào được thêm.</p>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                    {gameList.map(game => (
-                        <GameCard key={game.key} game={game} onPlay={onPlay} />
-                    ))}
-                </div>
-            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                {gameList.map(game => (
+                    <GameCard key={game.key} game={game} onPlay={onPlay} />
+                ))}
+            </div>
         </div>
     </div>
 );
+
 
 function App() {
     const { isAuthenticated, isLoading, user, logout } = useAuth();
@@ -67,18 +66,21 @@ function App() {
                 return <GameLibrary onPlay={navigateTo} />;
             case 'history':
                 return <HistoryDisplay onBack={() => navigateTo('home')} />;
+            case 'friends':
+                return <FriendsPage />;
             case 'home':
             default:
-                return <Hero />;
+                return <HomePage />;
         }
     };
 
     return (
         <div className="bg-black text-white min-h-screen">
             <Header onNavigate={navigateTo} currentView={currentView} user={user} onLogout={logout} />
-            <main>
+            <main className="mr-64">
                 {renderContent()}
             </main>
+            <FriendsSidebar />
         </div>
     );
 }

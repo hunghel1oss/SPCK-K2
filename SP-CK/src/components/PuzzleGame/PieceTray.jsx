@@ -1,6 +1,6 @@
 import React from 'react';
 
-const PieceTray = ({ trayPieces, pieces, image, difficulty, boardSize, onPieceMove }) => {
+const PieceTray = ({ trayPieces, pieces, imageSrc, difficulty, boardSize, onPieceMove }) => {
     const pieceSize = boardSize / difficulty;
 
     const handleDragOver = (e) => e.preventDefault();
@@ -40,7 +40,7 @@ const PieceTray = ({ trayPieces, pieces, image, difficulty, boardSize, onPieceMo
                             style={{
                                 width: `${pieceSize}px`,
                                 height: `${pieceSize}px`,
-                                backgroundImage: `url(${image.src})`,
+                                backgroundImage: `url(${imageSrc})`,
                                 backgroundSize: `${boardSize}px ${boardSize}px`,
                                 backgroundPosition: `-${pieceData.originalX * pieceSize}px -${pieceData.originalY * pieceSize}px`,
                             }}

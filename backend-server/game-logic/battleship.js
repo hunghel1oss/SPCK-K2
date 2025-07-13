@@ -216,4 +216,4 @@ function handleBattleshipDisconnect(ws, { clients }) {
     }
 }
 
-module.exports = { handleBattleshipEvents, handleBattleshipDisconnect };
+module.exports = { handleBattleshipEvents, handleBattleshipDisconnect, battleshipGames };

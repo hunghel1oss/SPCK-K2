@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import * as api from '../services/api';
-import * as websocketService from '../services/websocketService';
+import * as api from '/src/services/api';
+import * as websocketService from '/src/services/websocketService';
 import { useHistory } from './HistoryContext';
 
 const AuthContext = createContext(null);

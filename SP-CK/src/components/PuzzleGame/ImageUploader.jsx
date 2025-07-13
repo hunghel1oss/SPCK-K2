@@ -1,20 +1,32 @@
 import React, { useRef } from "react";
 
-const ImageUploader = ({ onImageUpload }) => {
+const ImageUploader = ({ onUploadSuccess }) => {
     const fileInputRef = useRef(null);
 
-    const handleFileChange = (e) => {
+    const handleFileChange = async (e) => {
         const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    onImageUpload(img);
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('puzzleImage', file);
+
+        try {
+            const response = await fetch('http://localhost:8080/api/upload/puzzle-image', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Tải ảnh lên thất bại');
+            }
+
+            const data = await response.json();
+            onUploadSuccess(data.imageUrl);
+
+        } catch (error) {
+            console.error('Lỗi khi tải ảnh:', error);
+            alert('Đã có lỗi xảy ra khi tải ảnh lên. Vui lòng thử lại.');
         }
     };
 

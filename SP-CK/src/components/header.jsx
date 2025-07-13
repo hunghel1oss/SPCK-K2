@@ -12,7 +12,7 @@ const Header = ({ onNavigate, currentView, user, onLogout }) => {
         onNavigate(view);
     };
 
-    const isGameView = (view) => !['home', 'games', 'history'].includes(view);
+    const isGameView = (view) => !['home', 'games', 'history', 'friends'].includes(view);
 
     return (
         <header className="flex justify-between items-center px-4 py-4 lg:px-20 relative z-50 bg-black text-white">
@@ -30,8 +30,8 @@ const Header = ({ onNavigate, currentView, user, onLogout }) => {
                 <a className={`text-base tracking-wider transition-colors hover:text-gray-300 ${currentView === 'history' ? 'font-bold' : ''}`} href="#" onClick={(e) => handleNavClick(e, 'history')}>
                     LỊCH SỬ
                 </a>
-                <a className="text-base tracking-wider transition-colors hover:text-gray-300" href="#">
-                    LIÊN HỆ
+                <a className={`text-base tracking-wider transition-colors hover:text-gray-300 ${currentView === 'friends' ? 'font-bold' : ''}`} href="#" onClick={(e) => handleNavClick(e, 'friends')}>
+                    BẠN BÈ
                 </a>
             </nav>
 
@@ -50,13 +50,12 @@ const Header = ({ onNavigate, currentView, user, onLogout }) => {
                 <i className="bx bx-menu"></i>
             </button>
 
-            {/* Mobile Menu */}
             <div id="mobileMenu" className="hidden fixed top-16 bottom-0 right-0 left-0 p-5 md:hidden z-40 bg-black bg-opacity-70 backdrop-blur-md">
                 <nav className="flex flex-col gap-6 items-center mt-10">
                     <a href="#" onClick={(e) => { handleNavClick(e, 'home'); toggleMobileMenu(); }} className="text-xl">TRANG CHỦ</a>
                     <a href="#" onClick={(e) => { handleNavClick(e, 'games'); toggleMobileMenu(); }} className="text-xl">THƯ VIỆN GAME</a>
                     <a href="#" onClick={(e) => { handleNavClick(e, 'history'); toggleMobileMenu(); }} className="text-xl">LỊCH SỬ</a>
-                    <a href="#" className="text-xl">LIÊN HỆ</a>
+                    <a href="#" onClick={(e) => { handleNavClick(e, 'friends'); toggleMobileMenu(); }} className="text-xl">BẠN BÈ</a>
                     <div className="mt-8 flex flex-col items-center gap-4">
                         <span className="text-white text-lg">Chào, {user.username}</span>
                         <button onClick={onLogout} className="bg-red-600 text-white py-2 px-6 rounded-full font-medium">ĐĂNG XUẤT</button>

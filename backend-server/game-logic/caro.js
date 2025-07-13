@@ -138,4 +138,4 @@ function handleCaroDisconnect(ws, { clients }) {
     }
 }
 
-module.exports = { handleCaroEvents, handleCaroDisconnect };
+module.exports = { handleCaroEvents, handleCaroDisconnect, caroGames };

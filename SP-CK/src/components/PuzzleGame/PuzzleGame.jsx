@@ -18,7 +18,7 @@ const shuffleArray = (array) => {
 };
 
 const PuzzleGame = () => {
-    const [image, setImage] = useState(null);
+    const [imageSrc, setImageSrc] = useState(null);
     const [difficulty, setDifficulty] = useState(4);
     const [masterPieces, setMasterPieces] = useState([]);
     const [boardSlots, setBoardSlots] = useState([]);
@@ -34,7 +34,7 @@ const PuzzleGame = () => {
     const boardSize = 500;
 
     const setupGame = () => {
-        if (!image) return;
+        if (!imageSrc) return;
 
         const totalPieces = difficulty * difficulty;
         const newMasterPieces = [];
@@ -93,7 +93,7 @@ const PuzzleGame = () => {
             if (apiKey) {
                 saveGameForUser(apiKey, {
                     gameName: 'Jigsaw Puzzle',
-                    imageSrc: image.src,
+                    imageSrc: imageSrc,
                     difficulty: `${difficulty}x${difficulty}`,
                     moves: currentMoveCount,
                     timeInSeconds: time,
@@ -102,8 +102,8 @@ const PuzzleGame = () => {
         }
     };
     
-    const handleImageUpload = (img) => {
-        setImage(img);
+    const handleUploadSuccess = (imageUrl) => {
+        setImageSrc(`http://localhost:8080${imageUrl}`);
         setGameStarted(false);
         setIsSolved(false);
     };
@@ -111,7 +111,7 @@ const PuzzleGame = () => {
     const handlePlayAgain = () => {
         setIsSolved(false);
         setGameStarted(false);
-        setImage(null);
+        setImageSrc(null);
         setMasterPieces([]);
         setBoardSlots([]);
         setTrayPieces([]);
@@ -139,13 +139,13 @@ const PuzzleGame = () => {
                 </div>
             )}
 
-            {!image ? (
-                <ImageUploader onImageUpload={handleImageUpload} />
+            {!imageSrc ? (
+                <ImageUploader onUploadSuccess={handleUploadSuccess} />
             ) : (
                 <div className="w-full max-w-7xl mx-auto">
                     {!gameStarted ? (
                         <div className="flex flex-col items-center gap-6 bg-gray-800 p-8 rounded-xl">
-                            <img src={image.src} alt="Preview" className="w-48 h-48 object-cover rounded-lg shadow-lg"/>
+                            <img src={imageSrc} alt="Preview" className="w-48 h-48 object-cover rounded-lg shadow-lg"/>
                             <DifficultySelector selected={difficulty} onSelect={setDifficulty} />
                             <button onClick={setupGame} className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg text-xl transition-transform transform hover:scale-105">
                                 Bắt đầu chơi
@@ -156,7 +156,7 @@ const PuzzleGame = () => {
                             <PuzzleBoard
                                 boardSlots={boardSlots}
                                 pieces={masterPieces}
-                                image={image}
+                                imageSrc={imageSrc}
                                 difficulty={difficulty}
                                 boardSize={boardSize}
                                 onPieceMove={handlePieceMove}
@@ -164,7 +164,7 @@ const PuzzleGame = () => {
                             <PieceTray
                                 trayPieces={trayPieces}
                                 pieces={masterPieces}
-                                image={image}
+                                imageSrc={imageSrc}
                                 difficulty={difficulty}
                                 boardSize={boardSize}
                                 onPieceMove={handlePieceMove}

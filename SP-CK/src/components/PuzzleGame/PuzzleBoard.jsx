@@ -1,6 +1,6 @@
 import React from 'react';
 
-const PuzzleBoard = ({ boardSlots, pieces, image, difficulty, boardSize, onPieceMove }) => {
+const PuzzleBoard = ({ boardSlots, pieces, imageSrc, difficulty, boardSize, onPieceMove }) => {
     const pieceSize = boardSize / difficulty;
 
     const handleDragOver = (e) => {
@@ -44,7 +44,7 @@ const PuzzleBoard = ({ boardSlots, pieces, image, difficulty, boardSize, onPiece
                                 style={{
                                     width: `${pieceSize}px`,
                                     height: `${pieceSize}px`,
-                                    backgroundImage: `url(${image.src})`,
+                                    backgroundImage: `url(${imageSrc})`,
                                     backgroundSize: `${boardSize}px ${boardSize}px`,
                                     backgroundPosition: `-${piece.originalX * pieceSize}px -${piece.originalY * pieceSize}px`,
                                 }}

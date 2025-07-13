@@ -1,57 +1,38 @@
 import React, { createContext, useState, useContext, useCallback } from 'react';
-
-const getHistoryKey = (apiKey) => `gameHistory_${apiKey}`;
+import { getHistory, saveGameToHistory } from '../services/api';
 
 export const HistoryContext = createContext(null);
 
 export const HistoryProvider = ({ children }) => {
     const [history, setHistory] = useState([]);
 
-    const loadHistoryForUser = useCallback((apiKey) => {
+    const loadHistoryForUser = useCallback(async (apiKey) => {
         if (!apiKey) {
             setHistory([]);
             return;
         }
         try {
-            const historyKey = getHistoryKey(apiKey);
-            const storedHistory = localStorage.getItem(historyKey);
-            setHistory(storedHistory ? JSON.parse(storedHistory) : []);
+            const serverHistory = await getHistory(apiKey);
+            setHistory(serverHistory);
         } catch (error) {
-            console.error("Không thể tải lịch sử game:", error);
+            console.error("Không thể tải lịch sử game từ server:", error);
             setHistory([]);
         }
     }, []);
 
-    const saveGameForUser = useCallback((apiKey, gameData) => {
+    const saveGameForUser = useCallback(async (apiKey, gameData) => {
         if (!apiKey) return;
         try {
-            const historyKey = getHistoryKey(apiKey);
-            const currentHistory = JSON.parse(localStorage.getItem(historyKey)) || [];
-
-            const newRecord = {
-                id: Date.now(),
-                date: new Date().toLocaleString('vi-VN'),
-                ...gameData
-            };
-            
-            const updatedHistory = [newRecord, ...currentHistory];
-            
-            if (updatedHistory.length > 20) {
-                updatedHistory.pop();
-            }
-
-            localStorage.setItem(historyKey, JSON.stringify(updatedHistory));
+            const updatedHistory = await saveGameToHistory(apiKey, gameData);
             setHistory(updatedHistory);
         } catch (error) {
-            console.error("Không thể lưu lịch sử game:", error);
+            console.error("Không thể lưu lịch sử game lên server:", error);
         }
     }, []);
 
     const clearHistoryForUser = useCallback((apiKey) => {
-        if (!apiKey) return;
-        const historyKey = getHistoryKey(apiKey);
-        localStorage.removeItem(historyKey);
-        setHistory([]);
+        console.warn("Chức năng xóa lịch sử trên server chưa được cài đặt.");
+        setHistory([]); 
     }, []);
 
     const value = {
