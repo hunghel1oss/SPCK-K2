@@ -11,9 +11,7 @@ export const CaroGame = ({ onBack }) => {
     const { apiKey } = useAuth();
 
     const saveCurrentGame = useCallback((gameData) => {
-        if (apiKey) {
-            saveGameForUser(apiKey, gameData);
-        }
+        if (apiKey) saveGameForUser(apiKey, gameData);
     }, [apiKey, saveGameForUser]);
 
     const { gameState, findMatch, makeMove, requestRematch, leaveLobby } = useCaroGameSocket(saveCurrentGame, apiKey);
@@ -21,35 +19,23 @@ export const CaroGame = ({ onBack }) => {
 
     const getStatusMessage = () => {
         if (status === 'finished') {
-            if (winner) {
-                return winner === mySymbol ? 'Bạn đã thắng!' : 'Bạn đã thua!';
-            }
+            if (winner) return winner === mySymbol ? 'Bạn đã thắng!' : 'Bạn đã thua!';
             return 'Hòa cờ!';
         }
-        if (status === 'playing') {
-            return isMyTurn ? `Lượt của bạn (${mySymbol})` : `Đang chờ ${opponent}...`;
-        }
+        if (status === 'playing') return isMyTurn ? `Lượt của bạn (${mySymbol})` : `Đang chờ ${opponent}...`;
         return 'Đang chờ...';
     };
 
     const handleBack = () => {
-        if (status === 'waiting') {
-            leaveLobby();
-        }
+        if (status === 'waiting') leaveLobby();
         onBack();
     }
 
     if (status === 'lobby' || status === 'waiting') {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-                <Lobby 
-                    status={status} 
-                    onFindMatch={findMatch} 
-                    onCancelFind={leaveLobby} 
-                />
-                <button onClick={handleBack} className="mt-8 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">
-                    Quay lại
-                </button>
+                <Lobby status={status} onFindMatch={findMatch} onCancelFind={leaveLobby} />
+                <button onClick={handleBack} className="mt-8 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">Quay lại</button>
             </div>
         );
     }

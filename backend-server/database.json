@@ -9,6 +9,42 @@
     },
     "history": [
       {
+        "id": "48f25f47-836a-4cfc-81da-7cd2068e65b3",
+        "date": "2025-07-14T12:23:09.538Z",
+        "gameName": "Cờ Caro",
+        "difficulty": "Online vs h1",
+        "result": "Thắng",
+        "imageSrc": "/img/caro.jpg"
+      },
+      {
+        "id": "1419a4ef-0f79-4c72-9f1c-01c680643dd8",
+        "date": "2025-07-14T11:07:26.489Z",
+        "gameName": "Cờ Caro",
+        "difficulty": "Online vs h1",
+        "result": "Thua",
+        "imageSrc": "/img/caro.jpg"
+      },
+      {
+        "id": "1c581571-0447-4fec-9392-b6ccefe44d58",
+        "date": "2025-07-14T10:11:41.628Z",
+        "gameName": "Cờ Caro",
+        "difficulty": "Online vs h1",
+        "moves": -1,
+        "timeInSeconds": -1,
+        "result": "Thắng",
+        "imageSrc": "/img/caro.jpg"
+      },
+      {
+        "id": "b121d3b1-31f1-4cad-ad15-e955bf3b5278",
+        "date": "2025-07-14T09:40:39.579Z",
+        "gameName": "Cờ Caro",
+        "difficulty": "Online vs h1",
+        "moves": -1,
+        "timeInSeconds": -1,
+        "result": "Thua",
+        "imageSrc": "/caro-thumbnail.png"
+      },
+      {
         "id": "8fcb2c93-7f5f-4f9b-af50-6bd60552944b",
         "date": "2025-07-13T11:59:15.710Z",
         "gameName": "Cờ Caro",
@@ -55,6 +91,57 @@
       "createdAt": "2025-07-11T11:05:33.381Z"
     },
     "history": [
+      {
+        "id": "8c371ce9-2c8e-467a-a0fd-f5aadc0dde3e",
+        "date": "2025-07-14T11:23:35.081Z",
+        "gameName": "Cờ Caro",
+        "difficulty": "Online vs h",
+        "result": "Thắng",
+        "imageSrc": "/img/caro.jpg"
+      },
+      {
+        "id": "cc307a4c-39e7-4a82-9ff9-85a66f86ed54",
+        "date": "2025-07-14T11:07:26.487Z",
+        "gameName": "Cờ Caro",
+        "difficulty": "Online vs h",
+        "result": "Thắng",
+        "imageSrc": "/img/caro.jpg"
+      },
+      {
+        "id": "b753b7ab-e79e-41ff-9928-0c88ddc9f519",
+        "date": "2025-07-14T11:06:14.279Z",
+        "gameName": "Bắn Tàu",
+        "difficulty": "Online vs h",
+        "result": "Thắng",
+        "imageSrc": "/img/battleship.jpg"
+      },
+      {
+        "id": "3d185e29-280b-47a1-a428-9124cabe5701",
+        "date": "2025-07-14T10:13:36.608Z",
+        "gameName": "Bắn Tàu",
+        "difficulty": "Online vs h",
+        "result": "Thắng",
+        "imageSrc": "/img/battleship.jpg"
+      },
+      {
+        "id": "2911b94a-0879-46dc-9216-5962595e6aa6",
+        "date": "2025-07-14T10:11:41.616Z",
+        "gameName": "Cờ Caro",
+        "difficulty": "Online vs h",
+        "moves": -1,
+        "timeInSeconds": -1,
+        "result": "Thua",
+        "imageSrc": "/img/caro.jpg"
+      },
+      {
+        "id": "348c5772-add0-4953-ab0e-c1bf137e8928",
+        "date": "2025-07-14T09:42:20.214Z",
+        "gameName": "Jigsaw Puzzle",
+        "imageSrc": "http://localhost:8080/uploads/puzzleImage-1752486104641-29298994.png",
+        "difficulty": "3x3",
+        "moves": 12,
+        "timeInSeconds": 32
+      },
       {
         "is": "9a5c4f3d-5e73-4e06-b609-98873d2b1727",
         "data": "2025-07-11T11:12:50.486Z",

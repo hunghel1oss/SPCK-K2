@@ -1,54 +1,60 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useFriends } from '../../context/FriendsContext';
-
-const FriendStatusItem = ({ friend, isOnline }) => {
-    return (
-        <div 
-            className={`flex items-center gap-3 p-2 rounded-md transition-all duration-300 ${
-                !isOnline ? 'opacity-50' : ''
-            }`}
-        >
-            <div className="relative">
-                <div className={`
-                    w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center 
-                    font-bold text-white transition-all duration-300 ${
-                    !isOnline ? 'grayscale' : ''
-                }`}>
-                    {friend.username.charAt(0).toUpperCase()}
-                </div>
-                <span 
-                    className={`absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 
-                    border-gray-900 ${
-                    isOnline ? 'bg-green-500' : 'bg-gray-500'
-                }`}></span>
-            </div>
-            <span className="font-medium">{friend.username}</span>
-        </div>
-    );
-};
+import 'boxicons/css/boxicons.min.css';
+import FriendStatusItem from './FriendStatusItem';
 
 const FriendsSidebar = () => {
     const { friends, onlineFriends } = useFriends();
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    // DÒNG LOG QUAN TRỌNG ĐỂ BIẾT COMPONENT CÓ RENDER LẠI KHÔNG
+    console.log('%c[SIDEBAR] Rendering. Online friends:', 'color: yellow;', onlineFriends);
 
     const sortedFriends = [...friends].sort((a, b) => {
         const aIsOnline = onlineFriends.has(a.username);
         const bIsOnline = onlineFriends.has(b.username);
-        return bIsOnline - aIsOnline;
+        if (aIsOnline !== bIsOnline) {
+            return bIsOnline - aIsOnline;
+        }
+        return a.username.localeCompare(b.username);
     });
 
     return (
-        <aside className="fixed top-0 right-0 h-full w-64 bg-gray-900 text-white p-4 shadow-lg transform translate-x-full md:translate-x-0 transition-transform z-30 pt-20">
-             <h3 className="text-lg font-semibold tracking-wider mb-4 border-b border-gray-700 pb-2">BẠN BÈ ({friends.length})</h3>
-            <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100%-4rem)]">
-                {sortedFriends.length > 0 ? sortedFriends.map(friend => (
-                    <FriendStatusItem 
-                        key={friend.username} 
-                        friend={friend} 
-                        isOnline={onlineFriends.has(friend.username)} 
-                    />
-                )) : (
-                    <p className="text-gray-500 text-sm mt-4 text-center">Chưa có bạn bè nào. Hãy tìm kiếm và kết bạn!</p>
-                )}
+        <aside 
+            className={`sticky top-0 h-screen bg-gray-900 text-white shadow-lg transition-all duration-300 ease-in-out flex-shrink-0
+            ${isExpanded ? 'w-64' : 'w-16'}`}
+        >
+           {/* ... phần JSX còn lại giữ nguyên ... */}
+            <div className="h-full flex flex-col">
+                <div 
+                    className="flex items-center justify-center h-20 cursor-pointer border-b border-gray-700 hover:bg-gray-800 relative"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                >
+                    <i className={`bx bxs-user-detail text-2xl transition-all duration-300 ${isExpanded ? 'mr-2' : 'mr-0'}`}></i>
+                    {isExpanded && (
+                        <h3 className="text-lg font-semibold tracking-wider whitespace-nowrap">
+                           BẠN BÈ ({friends.length})
+                        </h3>
+                    )}
+                    <i className={`bx bx-chevron-left text-2xl absolute right-4 top-1/2 -translate-y-1/2 transition-transform duration-300 ${isExpanded ? 'rotate-0' : 'rotate-180'}`}></i>
+                </div>
+                
+                <div className={`flex-grow overflow-y-auto transition-opacity duration-300 ${isExpanded ? 'opacity-100 p-4' : 'opacity-0 p-0'}`}>
+                    {isExpanded && (
+                         <div className="flex flex-col gap-2">
+                            {sortedFriends.length > 0 ? sortedFriends.map(friend => (
+                                <FriendStatusItem 
+                                    key={friend.username} 
+                                    friend={friend} 
+                                    isOnline={onlineFriends.has(friend.username)} 
+                                    isExpanded={isExpanded}
+                                />
+                            )) : (
+                                <p className="text-gray-500 text-sm mt-4 text-center">Chưa có bạn bè nào.</p>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </aside>
     );

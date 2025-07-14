@@ -1,6 +1,6 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import * as api from '/src/services/api.js'
-import * as websocketService from '/src/services/websocketService.js'
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import * as api from '/src/services/api.js';
+import * as websocketService from '/src/services/websocketService.js';
 import { useAuth } from './AuthContext';
 
 const FriendsContext = createContext(null);
@@ -11,61 +11,76 @@ export const FriendsProvider = ({ children }) => {
     const [requests, setRequests] = useState([]);
     const [onlineFriends, setOnlineFriends] = useState(new Set());
 
-    const fetchFriendsData = useCallback(async () => {
-        if (!apiKey) return;
-        try {
-            const allRelations = await api.getFriends(apiKey);
-            setFriends(allRelations.filter(r => r.status === 'friends'));
-            setRequests(allRelations.filter(r => r.status !== 'friends'));
-        } catch (error) {
-            console.error("Lỗi khi tải danh sách bạn bè:", error);
-        }
-    }, [apiKey]);
-
     useEffect(() => {
-        if (isAuthenticated) {
-            fetchFriendsData();
-            
-            websocketService.on('friend:online', ({ username }) => {
-                setOnlineFriends(prev => new Set(prev).add(username));
-            });
-            websocketService.on('friend:offline', ({ username }) => {
-                setOnlineFriends(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(username);
-                    return newSet;
-                });
-            });
-            websocketService.on('friend:list_online', (onlineUsernames) => {
-                setOnlineFriends(new Set(onlineUsernames));
-            });
-            const reloadOnChange = () => fetchFriendsData();
-            websocketService.on('friend:request_received', reloadOnChange);
-            websocketService.on('friend:request_accepted', reloadOnChange);
-
-            return () => {
-                websocketService.off('friend:online');
-                websocketService.off('friend:offline');
-                websocketService.off('friend:list_online');
-                websocketService.off('friend:request_received', reloadOnChange);
-                websocketService.off('friend:request_accepted', reloadOnChange);
-            };
-        } else {
+        if (!isAuthenticated || !apiKey) {
             setFriends([]);
             setRequests([]);
             setOnlineFriends(new Set());
+            return;
         }
-    }, [isAuthenticated, fetchFriendsData]);
+
+        const loadFriendData = async () => {
+            try {
+                const allRelations = await api.getFriends(apiKey);
+                setFriends(allRelations.filter(r => r.status === 'friends'));
+                setRequests(allRelations.filter(r => r.status !== 'friends'));
+            } catch (error) {
+                console.error("Lỗi khi tải danh sách bạn bè:", error);
+            }
+        };
+
+        loadFriendData();
+
+        const handleFriendOnline = ({ username }) => {
+            console.log(`%c[CONTEXT] Received friend:online for: ${username}`, 'color: lightgreen; font-weight: bold;');
+            setOnlineFriends(prev => {
+                const newSet = new Set(prev);
+                newSet.add(username);
+                console.log('[CONTEXT] New online set is:', newSet);
+                return newSet;
+            });
+        };
+        const handleFriendOffline = ({ username }) => {
+            console.log(`%c[CONTEXT] Received friend:offline for: ${username}`, 'color: orange; font-weight: bold;');
+            setOnlineFriends(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(username);
+                console.log('[CONTEXT] New online set is:', newSet);
+                return newSet;
+            });
+        };
+        const handleOnlineList = (onlineUsernames) => {
+            console.log('%c[CONTEXT] Received friend:list_online:', 'color: lightblue; font-weight: bold;', onlineUsernames);
+            setOnlineFriends(new Set(onlineUsernames));
+        };
+        const handleFriendChange = () => {
+            loadFriendData();
+        };
+
+        websocketService.on('friend:online', handleFriendOnline);
+        websocketService.on('friend:offline', handleFriendOffline);
+        websocketService.on('friend:list_online', handleOnlineList);
+        websocketService.on('friend:request_received', handleFriendChange);
+        websocketService.on('friend:request_accepted', handleFriendChange);
+        websocketService.on('friend:request_declined', handleFriendChange); 
+
+        return () => {
+            websocketService.off('friend:online', handleFriendOnline);
+            websocketService.off('friend:offline', handleFriendOffline);
+            websocketService.off('friend:list_online', handleOnlineList);
+            websocketService.off('friend:request_received', handleFriendChange);
+            websocketService.off('friend:request_accepted', handleFriendChange);
+            websocketService.off('friend:request_declined', handleFriendChange);
+        };
+    }, [isAuthenticated, apiKey]);
 
     const sendFriendRequest = async (targetUsername) => {
         const res = await api.sendFriendRequest(apiKey, targetUsername);
-        await fetchFriendsData();
         return res;
     };
 
     const respondToFriendRequest = async (requesterUsername, action) => {
         const res = await api.respondToFriendRequest(apiKey, requesterUsername, action);
-        await fetchFriendsData();
         return res;
     };
     
@@ -73,7 +88,6 @@ export const FriendsProvider = ({ children }) => {
         friends,
         requests,
         onlineFriends,
-        fetchFriendsData,
         sendFriendRequest,
         respondToFriendRequest,
     };
@@ -85,7 +99,6 @@ export const FriendsProvider = ({ children }) => {
     );
 };
 
-// FIX: Thêm từ khóa "export" vào đây
 export const useFriends = () => {
     const context = useContext(FriendsContext);
     if (!context) {

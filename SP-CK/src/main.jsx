@@ -1,14 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
-import { AuthProvider } from './context/AuthContext';
-import { HistoryProvider } from './context/HistoryContext';
-// 1. IMPORT FriendsProvider TẠI ĐÂY
-import { FriendsProvider } from './context/FriendsContext';
+import App from './App.jsx';
 import './index.css';
+import { AuthProvider } from './context/AuthContext.jsx';
+import { HistoryProvider } from './context/HistoryContext.jsx';
+import { FriendsProvider } from './context/FriendsContext.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
+    // THAY ĐỔI THỨ TỰ Ở ĐÂY
     <HistoryProvider>
       <AuthProvider>
         <FriendsProvider>
@@ -16,5 +15,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         </FriendsProvider>
       </AuthProvider>
     </HistoryProvider>
-  </React.StrictMode>,
 );

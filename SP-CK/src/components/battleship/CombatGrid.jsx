@@ -5,19 +5,19 @@ const BOARD_SIZE = 9;
 const Cell = ({ cellData, isMyBoard }) => {
     let bgColor = 'bg-blue-900/50';
     let content = null;
-    let hoverEffect = isMyBoard ? '' : 'hover:bg-blue-700';
+    let hoverEffect = isMyBoard ? '' : 'hover:bg-blue-700/80';
 
     if (cellData.isHit) {
-        hoverEffect = ''; // Không cho hover ô đã bắn
+        hoverEffect = '';
         if (cellData.shipId) {
-            bgColor = 'bg-red-500 animate-pulse';
-            content = '🔥';
+            bgColor = 'bg-red-600';
+            content = <span className="text-2xl">🔥</span>;
         } else {
             bgColor = 'bg-gray-700';
             content = <div className="w-2 h-2 bg-gray-400 rounded-full"></div>;
         }
     } else if (isMyBoard && cellData.shipId) {
-        bgColor = 'bg-gray-500'; // Hiển thị thuyền của mình
+        bgColor = 'bg-gray-500'; 
     }
 
     return (
@@ -39,14 +39,16 @@ const BoardLayout = ({ children }) => {
 
     return (
         <div className="flex gap-1">
-            <div className="flex flex-col gap-0.5 mt-9">
+            <div className="flex flex-col gap-0.5 pt-9">
                 {numbers.map(n => <Coordinate key={n}>{n}</Coordinate>)}
             </div>
-            <div>
-                <div className="flex gap-0.5 ml-9">
+            <div className="flex flex-col">
+                <div className="flex gap-0.5">
                     {letters.map(l => <Coordinate key={l}>{l}</Coordinate>)}
                 </div>
-                {children}
+                <div className="mt-0.5">
+                    {children}
+                </div>
             </div>
         </div>
     );

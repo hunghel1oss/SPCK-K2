@@ -1,6 +1,6 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import * as api from '/src/services/api';
-import * as websocketService from '/src/services/websocketService';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import * as api from '../services/api';
+import * as websocketService from '../services/websocketService';
 import { useHistory } from './HistoryContext';
 
 const AuthContext = createContext(null);
@@ -12,41 +12,50 @@ export const AuthProvider = ({ children }) => {
     const { loadHistoryForUser } = useHistory();
 
     useEffect(() => {
-        setIsLoading(true);
-        try {
-            const storedApiKey = localStorage.getItem('apiKey');
-            const storedUser = localStorage.getItem('user');
-
-            if (storedApiKey && storedUser) {
-                const parsedUser = JSON.parse(storedUser);
-                setUser({ username: parsedUser.username });
-                setApiKey(storedApiKey);
-                loadHistoryForUser(storedApiKey);
+        let isMounted = true;
+        const initializeAuth = async () => {
+            try {
+                const storedApiKey = localStorage.getItem('apiKey');
+                const storedUser = localStorage.getItem('user');
+                if (storedApiKey && storedUser) {
+                    const parsedUser = JSON.parse(storedUser);
+                    if (isMounted) {
+                        setUser({ username: parsedUser.username });
+                        setApiKey(storedApiKey);
+                        await loadHistoryForUser(storedApiKey);
+                        websocketService.connect(storedApiKey);
+                    }
+                }
+            } catch (error) {
+                console.error("Lỗi khi khởi tạo xác thực:", error);
+                localStorage.clear();
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
-        } catch (error) {
-            console.error("Lỗi khi khởi tạo xác thực:", error);
-            localStorage.clear();
-        } finally {
-            setIsLoading(false);
-        }
+        };
+        initializeAuth();
+        return () => { isMounted = false; };
     }, [loadHistoryForUser]);
 
-    const handleAuthSuccess = (data) => {
+    const handleAuthSuccess = useCallback(async (data) => {
         localStorage.setItem('apiKey', data.apiKey);
         localStorage.setItem('user', JSON.stringify({ username: data.username }));
         setUser({ username: data.username });
         setApiKey(data.apiKey);
-        loadHistoryForUser(data.apiKey);
-    };
+        await loadHistoryForUser(data.apiKey);
+        websocketService.connect(data.apiKey);
+    }, [loadHistoryForUser]);
 
     const login = async (username, password) => {
         const data = await api.login(username, password);
-        handleAuthSuccess(data);
+        await handleAuthSuccess(data);
     };
 
     const register = async (username, password) => {
         const data = await api.register(username, password);
-        handleAuthSuccess(data);
+        await handleAuthSuccess(data);
     };
 
     const logout = () => {

@@ -1,20 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import * as websocketService from '../../services/websocketService';
 import { useAuth } from '../../context/AuthContext';
 import { useHistory } from '../../context/HistoryContext';
 
 export const useBattleshipSocket = () => {
-    const { apiKey, username } = useAuth(); 
+    const { apiKey, user } = useAuth();
     const { saveGameForUser } = useHistory();
     const [gameState, setGameState] = useState({
-        status: 'lobby',
-        opponent: null,
-        shipsToPlace: null,
-        myBoard: [],
-        opponentBoard: [],
-        isMyTurn: false,
-        lastShotResult: null,
-        winner: null,
+        status: 'lobby', opponent: null, shipsToPlace: null, myBoard: [],
+        opponentBoard: [], isMyTurn: false, lastShotResult: null, winner: null,
     });
 
     const updateGameState = useCallback((updates) => {
@@ -22,53 +16,50 @@ export const useBattleshipSocket = () => {
     }, []);
 
     useEffect(() => {
-        if (!apiKey) return;
-
-        websocketService.connect(apiKey);
-
         const handleGameStart = (payload) => {
             updateGameState({
-                status: 'placement',
-                opponent: payload.opponent,
-                shipsToPlace: payload.shipsToPlace,
+                status: 'placement', opponent: payload.opponent, shipsToPlace: payload.shipsToPlace,
                 myBoard: Array(81).fill({ shipId: null, isHit: false }),
                 opponentBoard: Array(81).fill({ shipId: null, isHit: false }),
+                winner: null, lastShotResult: null,
             });
         };
-        
         const handleCombatStart = (payload) => {
-             updateGameState({ status: 'combat', isMyTurn: payload.isMyTurn });
+            updateGameState({ status: 'combat', isMyTurn: payload.isMyTurn });
         };
-
         const handleGameUpdate = (payload) => {
-            updateGameState({
-                isMyTurn: payload.isMyTurn,
-                myBoard: payload.myBoard,
-                opponentBoard: payload.opponentBoard,
-                lastShotResult: payload.shotResult,
+            setGameState(prev => {
+                const { shotResult, isMyTurn } = payload;
+                const { targetIndex, result, hitter } = shotResult;
+                if (hitter === user.username) {
+                    const newOpponentBoard = [...prev.opponentBoard];
+                    if (newOpponentBoard[targetIndex]) {
+                        newOpponentBoard[targetIndex] = { ...newOpponentBoard[targetIndex], isHit: true };
+                        if (result !== 'miss') newOpponentBoard[targetIndex].shipId = 'hit';
+                    }
+                    return { ...prev, isMyTurn, opponentBoard: newOpponentBoard, lastShotResult: shotResult };
+                } else {
+                    const newMyBoard = [...prev.myBoard];
+                    if (newMyBoard[targetIndex]) {
+                        newMyBoard[targetIndex] = { ...newMyBoard[targetIndex], isHit: true };
+                    }
+                    return { ...prev, isMyTurn, myBoard: newMyBoard, lastShotResult: shotResult };
+                }
             });
         };
-
         const handleGameOver = (payload) => {
-            // Dùng một biến tạm để lấy giá trị opponent mới nhất
+            if (payload.disconnectMessage) alert(payload.disconnectMessage);
             setGameState(prev => {
-                const didIWin = payload.winner === username;
-                // Lưu lịch sử ngay tại đây để đảm bảo có state mới nhất
+                const didIWin = payload.winner === user.username;
                 saveGameForUser(apiKey, {
-                    gameName: 'Bắn Tàu',
-                    difficulty: `Online vs ${prev.opponent}`,
-                    result: didIWin ? 'Thắng' : 'Thua',
-                    imageSrc: '/img/battleship.png'
+                    gameName: 'Bắn Tàu', difficulty: `Online vs ${prev.opponent}`,
+                    result: didIWin ? 'Thắng' : 'Thua', imageSrc: '/img/battleship.jpg'
                 });
                 return { ...prev, status: 'finished', winner: payload.winner };
             });
         };
-
         const handleWaiting = () => updateGameState({ status: 'waiting' });
-        const handleOpponentReady = () => {
-            // Có thể thêm một thông báo nhỏ ở đây
-            console.log('Đối thủ đã sẵn sàng! Chờ bạn...');
-        };
+        const handleOpponentReady = () => console.log('Đối thủ đã sẵn sàng! Chờ bạn...');
         const handleError = (payload) => alert(`Lỗi từ server: ${payload.message}`);
 
         websocketService.on('battleship:game_start', handleGameStart);
@@ -79,9 +70,7 @@ export const useBattleshipSocket = () => {
         websocketService.on('battleship:game_over', handleGameOver);
         websocketService.on('battleship:error', handleError);
 
-        // --- GIAI ĐOẠN 2: DỌN DẸP KHI COMPONENT UNMOUNT ---
         return () => {
-            console.log("Dọn dẹp Battleship Socket: gỡ listener và ngắt kết nối.");
             websocketService.off('battleship:game_start', handleGameStart);
             websocketService.off('battleship:waiting', handleWaiting);
             websocketService.off('battleship:opponent_ready', handleOpponentReady);
@@ -89,24 +78,21 @@ export const useBattleshipSocket = () => {
             websocketService.off('battleship:game_update', handleGameUpdate);
             websocketService.off('battleship:game_over', handleGameOver);
             websocketService.off('battleship:error', handleError);
-            
-            // Di chuyển disconnect vào đây!
-            websocketService.disconnect();
         };
-    }, [apiKey, username, updateGameState, saveGameForUser]);
+    }, [apiKey, user.username, updateGameState, saveGameForUser]);
 
-
-    const findMatch = () => {
-        websocketService.emit('battleship:find_match');
-    };
-
+    const findMatch = () => websocketService.emit('battleship:find_match');
     const placeShips = (ships) => {
+        const newMyBoard = Array(81).fill(null).map(() => ({ shipId: null, isHit: false }));
+        ships.forEach(ship => {
+            if (ship.isPlaced) {
+                ship.positions.forEach(pos => { newMyBoard[pos].shipId = ship.id; });
+            }
+        });
+        updateGameState({ myBoard: newMyBoard });
         websocketService.emit('battleship:place_ships', { ships });
     };
-
-    const fireShot = (index) => {
-        websocketService.emit('battleship:fire_shot', { index });
-    };
+    const fireShot = (index) => websocketService.emit('battleship:fire_shot', { index });
 
     return { gameState, findMatch, placeShips, fireShot };
 };

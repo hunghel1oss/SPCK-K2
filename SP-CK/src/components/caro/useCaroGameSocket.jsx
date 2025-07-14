@@ -5,13 +5,8 @@ const generateId = () => Math.random().toString(36).substring(2, 15);
 
 export const useCaroGameSocket = (saveGame, apiKey) => {
     const [gameState, setGameState] = useState({
-        status: 'lobby',
-        board: Array(100).fill(null),
-        isMyTurn: false,
-        mySymbol: null,
-        opponent: null,
-        winner: null,
-        winningLine: [],
+        status: 'lobby', board: Array(100).fill(null), isMyTurn: false,
+        mySymbol: null, opponent: null, winner: null, winningLine: [],
     });
 
     const matchmakingIdRef = useRef(null);
@@ -26,10 +21,6 @@ export const useCaroGameSocket = (saveGame, apiKey) => {
     }, []);
 
     useEffect(() => {
-        if (!apiKey) return;
-
-        websocketService.connect(apiKey);
-
         const handleGameStart = (data) => {
             matchmakingIdRef.current = null;
             updateGameState({ status: 'playing', ...data });
@@ -45,19 +36,17 @@ export const useCaroGameSocket = (saveGame, apiKey) => {
             updateGameState({ status: 'lobby' });
         };
         const handleGameUpdate = (data) => {
+            if (data.disconnectMessage) alert(data.disconnectMessage);
             updateGameState(data);
             if (data.status === 'finished' && saveGame) {
                 const currentState = gameStateRef.current;
                 const isWin = data.winner === currentState.mySymbol;
-                const result = {
-                    gameName: 'Cờ Caro',
-                    difficulty: `Online vs ${currentState.opponent}`,
-                    moves: -1,
-                    timeInSeconds: -1,
-                    result: data.winner ? (isWin ? 'Thắng' : 'Thua') : 'Hòa',
-                    imageSrc: '/caro-thumbnail.png'
+                const resultText = data.winner ? (isWin ? 'Thắng' : 'Thua') : 'Hòa';
+                const gameResult = {
+                    gameName: 'Cờ Caro', difficulty: `Online vs ${currentState.opponent}`,
+                    result: resultText, imageSrc: '/img/caro.jpg'
                 };
-                saveGame(result);
+                saveGame(gameResult);
             }
         };
 
@@ -71,22 +60,15 @@ export const useCaroGameSocket = (saveGame, apiKey) => {
             websocketService.off('caro:update', handleGameUpdate);
             websocketService.off('caro:waiting', handleWaiting);
             websocketService.off('caro:error', handleError);
-        };
-    }, [apiKey, saveGame, updateGameState]); 
-
-    useEffect(() => {
-        return () => {
             if (matchmakingIdRef.current) {
-                 websocketService.emit('caro:leave', { matchmakingId: matchmakingIdRef.current });
+                websocketService.emit('caro:leave', { matchmakingId: matchmakingIdRef.current });
             }
-            websocketService.disconnect();
-        }
-    }, []);
+        };
+    }, [apiKey, saveGame, updateGameState]);
 
     const findMatch = () => {
         const newMatchmakingId = generateId();
         matchmakingIdRef.current = newMatchmakingId;
-        updateGameState({ status: 'waiting' });
         websocketService.emit('caro:find_match', { matchmakingId: newMatchmakingId });
     };
 

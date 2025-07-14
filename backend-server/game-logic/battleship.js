@@ -7,18 +7,13 @@ const BOARD_SIZE = 9;
 const TOTAL_CELLS = BOARD_SIZE * BOARD_SIZE;
 
 const SHIP_TYPES = {
-    carrier: { size: 5, count: 1},
+    carrier: { size: 5, count: 1 },
     battleship: { size: 4, count: 2 },
     cruiser: { size: 3, count: 2 },
     destroyer: { size: 2, count: 1 },
 };
 
-const createEmptyBoard = () => {
-    return Array(TOTAL_CELLS).fill(null).map(() => ({
-        shipId: null,
-        isHit: false,
-    }));
-};
+const createEmptyBoard = () => Array(TOTAL_CELLS).fill(null).map(() => ({ shipId: null, isHit: false }));
 
 function handleBattleshipEvents(ws, type, payload, { clients }) {
     const username = ws.username;
@@ -27,39 +22,29 @@ function handleBattleshipEvents(ws, type, payload, { clients }) {
     switch (type) {
         case 'battleship:find_match': {
             if (battleshipWaitingPlayer && battleshipWaitingPlayer.user !== username) {
-                const player1 = battleshipWaitingPlayer;
+                const player1 = { user: battleshipWaitingPlayer.user };
                 const player2 = { user: username };
                 const player1_ws = clients.get(player1.user);
-                const player2_ws = ws;
-
+                
                 if (!player1_ws || player1_ws.readyState !== 1) {
-                    battleshipWaitingPlayer = player2;
-                    player2_ws.send(JSON.stringify({ type: 'battleship:waiting' }));
+                    battleshipWaitingPlayer = { user: username };
+                    ws.send(JSON.stringify({ type: 'battleship:waiting' }));
                     return;
                 }
-
                 const roomId = `battleship_${uuidv4()}`;
-                const newGame = {
+                battleshipGames[roomId] = {
                     roomId,
                     players: [
                         { username: player1.user, board: createEmptyBoard(), ships: [], isReady: false },
                         { username: player2.user, board: createEmptyBoard(), ships: [], isReady: false },
                     ],
                     gameState: 'placement',
-                    currentPlayer: null,
-                    winner: null,
                 };
-                battleshipGames[roomId] = newGame;
-
                 player1_ws.roomId = roomId;
-                player2_ws.roomId = roomId;
-
-                const gameStartPayload = { opponent: player2.user, shipsToPlace: SHIP_TYPES };
-                player1_ws.send(JSON.stringify({ type: 'battleship:game_start', payload: gameStartPayload }));
-                
-                gameStartPayload.opponent = player1.user;
-                player2_ws.send(JSON.stringify({ type: 'battleship:game_start', payload: gameStartPayload }));
-
+                ws.roomId = roomId;
+                const gameStartPayload = { shipsToPlace: SHIP_TYPES };
+                player1_ws.send(JSON.stringify({ type: 'battleship:game_start', payload: { ...gameStartPayload, opponent: player2.user } }));
+                ws.send(JSON.stringify({ type: 'battleship:game_start', payload: { ...gameStartPayload, opponent: player1.user } }));
                 battleshipWaitingPlayer = null;
             } else {
                 battleshipWaitingPlayer = { user: username };
@@ -70,150 +55,80 @@ function handleBattleshipEvents(ws, type, payload, { clients }) {
         
         case 'battleship:place_ships': {
             const roomId = ws.roomId;
-            if (!roomId || !battleshipGames[roomId]) return;
-
-            const game = battleshipGames[roomId];
-            const player = game.players.find(p => p.username === username);
-            if (!player || player.isReady) return;
-
-            player.ships = payload.ships;
-            player.board = createEmptyBoard();
+            const currentGame = battleshipGames[roomId];
+            if (!currentGame || currentGame.gameState !== 'placement') return;
+            const playerIndex = currentGame.players.findIndex(p => p.username === username);
+            if (playerIndex === -1 || currentGame.players[playerIndex].isReady) return;
             
-            player.ships.forEach(ship => {
-                ship.positions.forEach(pos => {
-                    if (player.board[pos]) {
-                        player.board[pos].shipId = ship.id;
-                    }
-                });
-            });
-
-            player.isReady = true;
+            const newBoard = createEmptyBoard();
+            payload.ships.forEach(ship => { ship.positions.forEach(pos => { if (pos >= 0 && pos < TOTAL_CELLS) newBoard[pos].shipId = ship.id; }); });
+            const updatedPlayer = { ...currentGame.players[playerIndex], isReady: true, ships: payload.ships, board: newBoard };
+            const newPlayers = currentGame.players.map((p, index) => index === playerIndex ? updatedPlayer : p);
+            const newGame = { ...currentGame, players: newPlayers };
+            battleshipGames[roomId] = newGame;
+            const opponent = newGame.players.find(p => p.username !== username);
             
-            const opponent = game.players.find(p => p.username !== username);
-            const opponentWs = clients.get(opponent.username);
-
             if (opponent && opponent.isReady) {
-                game.gameState = 'combat';
-                game.currentPlayer = Math.random() < 0.5 ? player.username : opponent.username;
-
-                game.players.forEach(p => {
+                newGame.gameState = 'combat';
+                newGame.currentPlayer = Math.random() < 0.5 ? username : opponent.username;
+                newGame.players.forEach(p => {
                     const pWs = clients.get(p.username);
-                    if (pWs) {
-                        pWs.send(JSON.stringify({
-                            type: 'battleship:combat_start',
-                            payload: { isMyTurn: p.username === game.currentPlayer }
-                        }));
+                    if (pWs && pWs.readyState === 1) {
+                        pWs.send(JSON.stringify({ type: 'battleship:combat_start', payload: { isMyTurn: p.username === newGame.currentPlayer } }));
                     }
                 });
-            } else if (opponentWs) {
-                opponentWs.send(JSON.stringify({ type: 'battleship:opponent_ready' }));
+            } else if (opponent) {
+                const opponentWs = clients.get(opponent.username);
+                if (opponentWs && opponentWs.readyState === 1) {
+                    opponentWs.send(JSON.stringify({ type: 'battleship:opponent_ready' }));
+                }
             }
             break;
         }
 
         case 'battleship:fire_shot': {
-            const roomId = ws.roomId;
-            if (!roomId || !battleshipGames[roomId]) return;
+            const currentGame = battleshipGames[ws.roomId];
+            if (!currentGame || currentGame.gameState !== 'combat' || currentGame.currentPlayer !== username) return;
+            const targetIndex = currentGame.players.findIndex(p => p.username !== username);
+            if (targetIndex === -1) return;
+            const targetPlayer = currentGame.players[targetIndex];
+            const targetCellIndex = payload.index;
+            if (targetCellIndex == null || targetPlayer.board[targetCellIndex].isHit) return;
 
-            const game = battleshipGames[roomId];
-            const shooter = game.players.find(p => p.username === ws.username);
-            const target = game.players.find(p => p.username !== ws.username);
-
-            if (!shooter || !target || game.gameState !== 'combat' || game.currentPlayer !== shooter.username) return;
-
-            const targetCell = target.board[payload.index];
-            if (!targetCell || targetCell.isHit) return;
-
-            targetCell.isHit = true;
-            
-            const shotResult = {
-                hitter: shooter.username,
-                targetIndex: payload.index,
-                result: 'miss'
-            };
-
-            if (targetCell.shipId) {
+            const updatedTargetBoard = targetPlayer.board.map((cell, index) => index === targetCellIndex ? { ...cell, isHit: true } : cell);
+            let shotResult = { hitter: username, targetIndex: targetCellIndex, result: 'miss' };
+            if (updatedTargetBoard[targetCellIndex].shipId) {
                 shotResult.result = 'hit';
-                const hitShip = target.ships.find(s => s.id === targetCell.shipId);
-                if (hitShip) {
-                    const allShipCells = hitShip.positions.map(pos => target.board[pos]);
-                    if (allShipCells.every(cell => cell.isHit)) {
-                        shotResult.result = 'sunk';
-                        shotResult.shipType = hitShip.type;
-                    }
+                const hitShip = targetPlayer.ships.find(s => s.id === updatedTargetBoard[targetCellIndex].shipId);
+                if (hitShip && hitShip.positions.every(pos => updatedTargetBoard[pos].isHit)) {
+                    shotResult.result = 'sunk';
+                    shotResult.shipInfo = { type: hitShip.type, positions: hitShip.positions };
                 }
             }
-
-            let isGameOver = false;
-            const allTargetShips = target.ships;
-            if (allTargetShips.length > 0 && allTargetShips.every(ship => ship.positions.every(pos => target.board[pos].isHit))) {
-                isGameOver = true;
-                game.gameState = 'finished';
-                game.winner = shooter.username;
-            }
-
-            if (isGameOver) {
-                game.players.forEach(p => {
-                    const pWs = clients.get(p.username);
-                    if (pWs) {
-                        pWs.send(JSON.stringify({
-                            type: 'battleship:game_over',
-                            payload: { winner: game.winner }
-                        }));
-                    }
-                });
+            const updatedTargetPlayer = { ...targetPlayer, board: updatedTargetBoard };
+            const newPlayers = currentGame.players.map((p, index) => index === targetIndex ? updatedTargetPlayer : p);
+            let newGame = { ...currentGame, players: newPlayers };
+            
+            if (updatedTargetPlayer.ships.every(ship => ship.positions.every(pos => updatedTargetPlayer.board[pos].isHit))) {
+                newGame.gameState = 'finished';
+                newGame.winner = username;
+                const gameOverPayload = { winner: newGame.winner };
+                newGame.players.forEach(p => { const pWs = clients.get(p.username); if (pWs) pWs.send(JSON.stringify({ type: 'battleship:game_over', payload: gameOverPayload })); });
             } else {
-                if (shotResult.result === 'miss') {
-                    game.currentPlayer = target.username;
-                }
-
-                game.players.forEach(p => {
+                if (shotResult.result === 'miss') newGame.currentPlayer = updatedTargetPlayer.username;
+                const gameUpdatePayload = { shotResult: shotResult, isMyTurn: false };
+                newGame.players.forEach(p => {
                     const pWs = clients.get(p.username);
-                    const opponentPlayer = game.players.find(op => op.username !== p.username);
-                    
-                    const opponentBoardForDisplay = opponentPlayer.board.map(cell => ({
-                        shipId: cell.isHit ? cell.shipId : null,
-                        isHit: cell.isHit,
-                    }));
-
                     if (pWs) {
-                        pWs.send(JSON.stringify({
-                            type: 'battleship:game_update',
-                            payload: {
-                                isMyTurn: p.username === game.currentPlayer,
-                                myBoard: p.board,
-                                opponentBoard: opponentBoardForDisplay,
-                                shotResult: shotResult
-                            }
-                        }));
+                        gameUpdatePayload.isMyTurn = p.username === newGame.currentPlayer;
+                        pWs.send(JSON.stringify({ type: 'battleship:game_update', payload: gameUpdatePayload }));
                     }
                 });
             }
+            battleshipGames[ws.roomId] = newGame;
             break;
         }
     }
 }
 
-function handleBattleshipDisconnect(ws, { clients }) {
-    const username = ws.username;
-    if (!username) return;
-
-    if (battleshipWaitingPlayer && battleshipWaitingPlayer.user === username) {
-        battleshipWaitingPlayer = null;
-    }
-
-    const roomId = ws.roomId;
-    if (roomId && battleshipGames[roomId]) {
-        const game = battleshipGames[roomId];
-        const opponent = game.players.find(p => p.username !== username);
-        if (opponent) {
-            const opponentWs = clients.get(opponent.username);
-            if (opponentWs && opponentWs.readyState === 1) {
-                opponentWs.send(JSON.stringify({ type: 'battleship:error', payload: { message: 'Đối thủ đã thoát!' } }));
-            }
-        }
-        delete battleshipGames[roomId];
-    }
-}
-
-module.exports = { handleBattleshipEvents, handleBattleshipDisconnect, battleshipGames };
+module.exports = { handleBattleshipEvents, battleshipGames };
