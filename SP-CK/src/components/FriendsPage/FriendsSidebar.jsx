@@ -1,3 +1,4 @@
+// src/components/Friends/FriendsSidebar.jsx
 import React, { useState } from 'react';
 import { useFriends } from '../../context/FriendsContext';
 import 'boxicons/css/boxicons.min.css';
@@ -6,9 +7,6 @@ import FriendStatusItem from './FriendStatusItem';
 const FriendsSidebar = () => {
     const { friends, onlineFriends } = useFriends();
     const [isExpanded, setIsExpanded] = useState(false);
-
-    // DÒNG LOG QUAN TRỌNG ĐỂ BIẾT COMPONENT CÓ RENDER LẠI KHÔNG
-    console.log('%c[SIDEBAR] Rendering. Online friends:', 'color: yellow;', onlineFriends);
 
     const sortedFriends = [...friends].sort((a, b) => {
         const aIsOnline = onlineFriends.has(a.username);
@@ -24,7 +22,6 @@ const FriendsSidebar = () => {
             className={`sticky top-0 h-screen bg-gray-900 text-white shadow-lg transition-all duration-300 ease-in-out flex-shrink-0
             ${isExpanded ? 'w-64' : 'w-16'}`}
         >
-           {/* ... phần JSX còn lại giữ nguyên ... */}
             <div className="h-full flex flex-col">
                 <div 
                     className="flex items-center justify-center h-20 cursor-pointer border-b border-gray-700 hover:bg-gray-800 relative"

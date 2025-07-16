@@ -1,10 +1,10 @@
-// src/components/main-function/history.js
+
 
 import React from 'react';
 import { useHistory } from '../../context/HistoryContext';
 import { formatTime } from './time';
 
-// Một hàm trợ giúp nhỏ để render kết quả cho đẹp hơn
+
 const getResultClass = (result) => {
     switch (result) {
         case 'Thắng':
@@ -47,7 +47,7 @@ export const HistoryDisplay = ({ onBack }) => {
                 <div className="space-y-4">
                     {history.map((game) => (
                         <div key={game.id} className="bg-gray-700 p-4 rounded-lg flex items-center gap-4">
-                            {/* Phần ảnh và thông tin chung */}
+
                             <img 
                                 src={game.imageSrc || '/default-game-thumbnail.png'} 
                                 alt="Game thumbnail" 
@@ -59,10 +59,10 @@ export const HistoryDisplay = ({ onBack }) => {
                                 <p className="text-gray-300">Độ khó: {game.difficulty}</p>
                             </div>
 
-                            {/* Phần hiển thị kết quả - THAY ĐỔI Ở ĐÂY */}
+                            
                             <div className="text-right w-48 flex-shrink-0">
                                 {game.hasOwnProperty('result') ? (
-                                    // Nếu là game có kết quả Thắng/Thua (như Caro)
+                                    
                                     <div>
                                         <p className="text-gray-300 text-lg">Kết quả</p>
                                         <p className={`font-bold text-2xl ${getResultClass(game.result)}`}>
@@ -70,7 +70,7 @@ export const HistoryDisplay = ({ onBack }) => {
                                         </p>
                                     </div>
                                 ) : (
-                                    // Nếu là game tính điểm/thời gian (như Sudoku, Puzzle)
+                                
                                     <div>
                                         <p className="text-gray-300">Số bước: <span className="font-semibold text-white">{game.moves}</span></p>
                                         <p className="text-gray-300">Thời gian: <span className="font-semibold text-white">{formatTime(game.timeInSeconds)}</span></p>

@@ -16,17 +16,17 @@ const ImageUploader = ({ onUploadSuccess }) => {
                 body: formData,
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Tải ảnh lên thất bại');
-            }
+            const responseData = await response.json();
 
-            const data = await response.json();
-            onUploadSuccess(data.imageUrl);
+            if (!response.ok) {
+                throw new Error(responseData.message || 'Tải ảnh lên thất bại');
+            }
+            
+            onUploadSuccess(responseData.imageUrl);
 
         } catch (error) {
             console.error('Lỗi khi tải ảnh:', error);
-            alert('Đã có lỗi xảy ra khi tải ảnh lên. Vui lòng thử lại.');
+            alert(error.message || 'Đã có lỗi xảy ra khi tải ảnh lên. Vui lòng thử lại.');
         }
     };
 

@@ -1,52 +1,45 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import * as api from '../services/api';
 import * as websocketService from '../services/websocketService';
-import { useHistory } from './HistoryContext';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [apiKey, setApiKey] = useState(null);
+    const [apiKey, setApiKey] = useState(() => localStorage.getItem('apiKey'));
     const [isLoading, setIsLoading] = useState(true);
-    const { loadHistoryForUser } = useHistory();
+
+    const validateAndSetUser = useCallback(async (keyToValidate) => {
+        if (!keyToValidate) {
+            setIsLoading(false);
+            return;
+        }
+        
+        try {
+            const userData = await api.validateApiKey(keyToValidate);
+            setUser(userData);
+            setApiKey(keyToValidate); 
+            websocketService.connect(keyToValidate);
+        } catch (error) {
+            console.error("API Key không hợp lệ, đang dọn dẹp:", error.message);
+            localStorage.removeItem('apiKey');
+            setUser(null);
+            setApiKey(null);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        let isMounted = true;
-        const initializeAuth = async () => {
-            try {
-                const storedApiKey = localStorage.getItem('apiKey');
-                const storedUser = localStorage.getItem('user');
-                if (storedApiKey && storedUser) {
-                    const parsedUser = JSON.parse(storedUser);
-                    if (isMounted) {
-                        setUser({ username: parsedUser.username });
-                        setApiKey(storedApiKey);
-                        await loadHistoryForUser(storedApiKey);
-                        websocketService.connect(storedApiKey);
-                    }
-                }
-            } catch (error) {
-                console.error("Lỗi khi khởi tạo xác thực:", error);
-                localStorage.clear();
-            } finally {
-                if (isMounted) {
-                    setIsLoading(false);
-                }
-            }
-        };
-        initializeAuth();
-        return () => { isMounted = false; };
-    }, [loadHistoryForUser]);
-
-    const handleAuthSuccess = useCallback(async (data) => {
+        validateAndSetUser(apiKey);
+    }, [validateAndSetUser]); 
+    
+    const handleAuthSuccess = async (data) => {
         localStorage.setItem('apiKey', data.apiKey);
-        localStorage.setItem('user', JSON.stringify({ username: data.username }));
-        setUser({ username: data.username });
         setApiKey(data.apiKey);
-        await loadHistoryForUser(data.apiKey);
+        setUser({ username: data.username });
         websocketService.connect(data.apiKey);
-    }, [loadHistoryForUser]);
+    };
 
     const login = async (username, password) => {
         const data = await api.login(username, password);
@@ -61,16 +54,14 @@ export const AuthProvider = ({ children }) => {
     const logout = () => {
         websocketService.disconnect();
         localStorage.removeItem('apiKey');
-        localStorage.removeItem('user');
         setUser(null);
         setApiKey(null);
-        loadHistoryForUser(null);
     };
 
     const value = {
         user,
         apiKey,
-        isAuthenticated: !!user,
+        isAuthenticated: !!apiKey,
         isLoading,
         login,
         register,
@@ -79,7 +70,7 @@ export const AuthProvider = ({ children }) => {
 
     return (
         <AuthContext.Provider value={value}>
-            {children}
+            {!isLoading && children}
         </AuthContext.Provider>
     );
 };

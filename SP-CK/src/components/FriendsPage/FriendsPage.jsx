@@ -1,3 +1,4 @@
+// src/components/Friends/FriendsPage.jsx
 import React from 'react';
 import UserSearch from './UserSearch';
 import PendingRequests from './PendingRequests';
@@ -12,7 +13,6 @@ const FriendsPage = () => {
                     <PendingRequests />
                 </div>
                 <div>
-                    {}
                     <div className="bg-gray-800 p-4 rounded-lg">
                         <h3 className="text-xl font-semibold mb-4 text-white">Bạn bè của bạn</h3>
                         <p className="text-gray-400">Danh sách bạn bè và trạng thái của họ được hiển thị ở thanh bên phải màn hình.</p>

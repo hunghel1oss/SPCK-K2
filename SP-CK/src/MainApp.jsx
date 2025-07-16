@@ -2,12 +2,11 @@ import React, { useState, Suspense } from 'react';
 import { useAuth } from './context/AuthContext';
 import Header from './components/header.jsx';
 import HomePage from './pages/HomePage';
-import FriendsPage from './components/FriendsPage/index.jsx';
+import FriendsPage from './components/FriendsPage/FriendsPage.jsx';
 import FriendsSidebar from './components/FriendsPage/FriendsSidebar.jsx';
 import { HistoryDisplay } from './components/main-function/history';
 import { gameList } from './GameList';
 
-// Các component con, bạn có thể đã có chúng ở nơi khác
 const GameCard = ({ game, onPlay }) => (
     <div className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg transition-transform transform hover:scale-105" onClick={() => onPlay(game.key)}>
         <img src={game.imageSrc} alt={game.name} className="w-full h-48 object-cover" />

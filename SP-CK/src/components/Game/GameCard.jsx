@@ -14,7 +14,6 @@ const GameCard = ({ game, onPlay }) => {
                     Chơi ngay
                 </button>
             </div>
-            {/* Tiêu đề mặc định khi không hover */}
             <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2 group-hover:opacity-0 transition-opacity">
                  <h3 className="text-xl font-bold text-white text-center truncate">{game.name}</h3>
             </div>

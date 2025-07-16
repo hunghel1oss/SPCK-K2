@@ -1,45 +1,78 @@
-import React, { createContext, useState, useContext, useCallback } from 'react';
-import { getHistory, saveGameToHistory } from '../services/api';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import * as api from '../services/api';
+import * as websocketService from '../services/websocketService'; // Import websocketService
+import { useAuth } from './AuthContext';
 
-export const HistoryContext = createContext(null);
+const HistoryContext = createContext();
+
+export const useHistory = () => useContext(HistoryContext);
 
 export const HistoryProvider = ({ children }) => {
+    const { isAuthenticated, apiKey } = useAuth();
     const [history, setHistory] = useState([]);
 
-    const loadHistoryForUser = useCallback(async (apiKey) => {
-        if (!apiKey) {
+    const loadHistory = useCallback(async () => {
+        if (isAuthenticated && apiKey) {
+            try {
+                console.log("Đang tải lại lịch sử...");
+                const historyData = await api.getHistory(apiKey);
+                setHistory(historyData);
+                console.log("Tải lại lịch sử thành công.");
+            } catch (error) {
+                console.error("Lỗi khi tải lịch sử:", error);
+                setHistory([]);
+            }
+        } else {
             setHistory([]);
+        }
+    }, [isAuthenticated, apiKey]);
+
+    useEffect(() => {
+        loadHistory();
+
+        // Lắng nghe sự kiện từ server
+        const handleHistoryUpdate = () => {
+            console.log("Nhận được tín hiệu 'history:updated' từ server.");
+            loadHistory();
+        };
+
+        websocketService.on('history:updated', handleHistoryUpdate);
+
+        // Dọn dẹp listener khi component unmount
+        return () => {
+            websocketService.off('history:updated', handleHistoryUpdate);
+        };
+
+    }, [loadHistory]);
+
+    const saveGameForUser = async (userApiKey, gameData) => {
+        if (!userApiKey) {
+            console.error("Không thể lưu lịch sử: API Key không tồn tại.");
             return;
         }
         try {
-            const serverHistory = await getHistory(apiKey);
-            setHistory(serverHistory);
-        } catch (error) {
-            console.error("Không thể tải lịch sử game từ server:", error);
-            setHistory([]);
-        }
-    }, []);
-
-    const saveGameForUser = useCallback(async (apiKey, gameData) => {
-        if (!apiKey) return;
-        try {
-            const updatedHistory = await saveGameToHistory(apiKey, gameData);
+            const updatedHistory = await api.saveGameToHistory(userApiKey, gameData);
             setHistory(updatedHistory);
         } catch (error) {
             console.error("Không thể lưu lịch sử game lên server:", error);
         }
-    }, []);
-
-    const clearHistoryForUser = useCallback((apiKey) => {
-        console.warn("Chức năng xóa lịch sử trên server chưa được cài đặt.");
-        setHistory([]); 
-    }, []);
+    };
+    
+    const clearHistoryForUser = async () => {
+        if (!apiKey) return;
+        try {
+            await api.clearHistory(apiKey);
+            setHistory([]);
+        } catch(error) {
+            console.error("Lỗi khi xóa lịch sử:", error);
+        }
+    }
 
     const value = {
         history,
-        loadHistoryForUser,
+        loadHistory,
         saveGameForUser,
-        clearHistoryForUser,
+        clearHistoryForUser
     };
 
     return (
@@ -47,12 +80,4 @@ export const HistoryProvider = ({ children }) => {
             {children}
         </HistoryContext.Provider>
     );
-};
-
-export const useHistory = () => {
-    const context = useContext(HistoryContext);
-    if (!context) {
-        throw new Error('useHistory phải được sử dụng bên trong HistoryProvider');
-    }
-    return context;
 };

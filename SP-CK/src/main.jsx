@@ -1,3 +1,5 @@
+// src/main.jsx (Cấu trúc ĐÚNG)
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
@@ -7,12 +9,12 @@ import { HistoryProvider } from './context/HistoryContext.jsx';
 import { FriendsProvider } from './context/FriendsContext.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-    // THAY ĐỔI THỨ TỰ Ở ĐÂY
-    <HistoryProvider>
-      <AuthProvider>
+  
+    <AuthProvider>
+      <HistoryProvider>
         <FriendsProvider>
           <App />
         </FriendsProvider>
-      </AuthProvider>
-    </HistoryProvider>
+      </HistoryProvider>
+    </AuthProvider>
 );

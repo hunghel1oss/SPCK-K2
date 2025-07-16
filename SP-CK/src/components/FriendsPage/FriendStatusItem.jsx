@@ -1,3 +1,4 @@
+// src/components/Friends/FriendStatusItem.jsx
 import React from 'react';
 
 const FriendStatusItem = ({ friend, isOnline, isExpanded }) => {

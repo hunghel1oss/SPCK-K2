@@ -8,8 +8,23 @@ const fs = require('fs/promises');
 const path = require('path');
 const multer = require('multer');
 
-const { handleCaroEvents, caroGames } = require('./game-logic/caro.js');
-const { handleBattleshipEvents, battleshipGames } = require('./game-logic/battleship.js');
+const { handleCaroEvents, caroGames, createCaroGame, resetGame: resetCaroGame } = require('./game-logic/caro.js');
+const { handleBattleshipEvents, battleshipGames, createBattleshipGame, resetGame: resetBattleshipGame } = require('./game-logic/battleship.js');
+const { handleLobbyEvent } = require('./game-logic/matchmakingHandler.js');
+const { handlePostGameAction } = require('./game-logic/postGameActionHandler.js');
+
+const { handleLeaveGame: originalHandleLeaveGame } = require('./game-logic/gameSessionHandler.js');
+const { handleDisconnect: originalHandleDisconnect } = require('./game-logic/disconnectHandler.js');
+
+const { createHistorySavingHandler } = require('./game-logic/historySaver.js');
+
+const handleLeaveGame = createHistorySavingHandler(originalHandleLeaveGame);
+const handleDisconnect = createHistorySavingHandler(originalHandleDisconnect);
+
+const gameRegistry = {
+    caro: { create: createCaroGame, games: caroGames, handler: handleCaroEvents, reset: resetCaroGame, gameName: 'Cờ Caro', imageSrc: '/img/caro.jpg' },
+    battleship: { create: createBattleshipGame, games: battleshipGames, handler: handleBattleshipEvents, reset: resetBattleshipGame, gameName: 'Bắn Tàu', imageSrc: '/img/battleship.jpg' }
+};
 
 const DB_FILE = path.join(__dirname, 'database.json');
 
@@ -39,9 +54,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const uploadPath = path.join(__dirname, 'public', 'uploads');
-        fs.mkdir(uploadPath, { recursive: true }).then(() => {
-             cb(null, uploadPath);
-        });
+        fs.mkdir(uploadPath, { recursive: true }).then(() => cb(null, uploadPath));
     },
     filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -49,7 +62,6 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
-
 const clients = new Map();
 
 async function authenticateUser(req, res, next) {
@@ -62,37 +74,70 @@ async function authenticateUser(req, res, next) {
     next();
 }
 
-app.post('/api/upload/puzzle-image', upload.single('puzzleImage'), (req, res) => {
-    if (!req.file) return res.status(400).send({ message: 'Please upload a file.' });
-    const imageUrl = `/uploads/${req.file.filename}`;
-    res.status(200).json({ imageUrl: imageUrl });
-});
+function normalizeToString(value) {
+    if (value === null || typeof value === 'undefined') {
+        return '';
+    }
+    return String(value).trim();
+}
 
 app.post('/api/register', async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ message: 'Tên đăng nhập và mật khẩu là bắt buộc' });
+    const username = normalizeToString(req.body.username);
+    const password = normalizeToString(req.body.password);
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Tên đăng nhập và mật khẩu là bắt buộc' });
+    }
     const database = await readDatabase();
-    if (database[username]) return res.status(400).json({ message: 'Tên đăng nhập đã tồn tại' });
+    
+    const existingUserKey = Object.keys(database).find(key => normalizeToString(key).toLowerCase() === username.toLowerCase());
+    if (existingUserKey) {
+        return res.status(400).json({ message: 'Tên đăng nhập đã tồn tại' });
+    }
+
     const apiKey = uuidv4();
-    database[username] = { credentials: { password, apiKey }, profile: { createdAt: new Date().toISOString() }, history: [], friends: [] };
+    database[username] = { 
+        credentials: { password: password, apiKey: apiKey }, 
+        profile: { createdAt: new Date().toISOString() }, 
+        history: [], 
+        friends: [] 
+    };
     await writeDatabase(database);
     res.status(201).json({ username, apiKey });
 });
-
 app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-    const database = await readDatabase();
-    const userAccount = database[username];
-    if (!userAccount || userAccount.credentials.password !== password) return res.status(401).json({ message: 'Tên đăng nhập hoặc mật khẩu không đúng' });
-    res.status(200).json({ username, apiKey: userAccount.credentials.apiKey });
-});
+    const loginUsername = normalizeToString(req.body.username);
+    const loginPassword = normalizeToString(req.body.password);
 
+    if (!loginUsername || !loginPassword) {
+        return res.status(401).json({ message: 'Tên đăng nhập hoặc mật khẩu không đúng' });
+    }
+    
+    const database = await readDatabase();
+    
+    const userKey = Object.keys(database).find(
+        dbKey => normalizeToString(dbKey).toLowerCase() === loginUsername.toLowerCase()
+    );
+
+    const userAccount = userKey ? database[userKey] : null;
+
+    if (!userAccount || normalizeToString(userAccount.credentials.password) !== loginPassword) {
+        return res.status(401).json({ message: 'Tên đăng nhập hoặc mật khẩu không đúng' });
+    }
+    
+    res.status(200).json({ username: userKey, apiKey: userAccount.credentials.apiKey });
+});
+app.get('/api/me', authenticateUser, (req, res) => {
+    res.status(200).json({ 
+        username: req.user.username,
+    });
+});
 app.get('/api/history', authenticateUser, (req, res) => res.status(200).json(req.user.history || []));
 app.post('/api/history', authenticateUser, async (req, res) => {
     const { body: gameData, user: { username } } = req;
     if (!gameData || !gameData.gameName) return res.status(400).json({ message: 'Game data is required.' });
     const database = await readDatabase();
     const newRecord = { id: uuidv4(), date: new Date().toISOString(), ...gameData };
+    if (!database[username].history) database[username].history = [];
     database[username].history.unshift(newRecord);
     if (database[username].history.length > 20) database[username].history.pop();
     await writeDatabase(database);
@@ -109,7 +154,6 @@ app.delete('/api/history', authenticateUser, async (req, res) => {
         res.status(404).json({ message: 'Không tìm thấy người dùng.' });
     }
 });
-
 app.get('/api/friends', authenticateUser, (req, res) => res.status(200).json(req.user.friends || []));
 app.post('/api/friends/request', authenticateUser, async(req, res)=>{
     const { user: { username: senderUsername }, body: { targetUsername } } = req;
@@ -168,6 +212,16 @@ app.get('/api/users/search', authenticateUser, async (req, res) => {
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ khi tìm kiếm.' });
     }
 });
+app.post('/api/upload/puzzle-image', upload.single('puzzleImage'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'Không có file nào được tải lên.' });
+    }
+    const imageUrl = `/uploads/${req.file.filename}`;
+    res.status(200).json({
+        message: 'Tải ảnh lên thành công!',
+        imageUrl: imageUrl
+    });
+});
 
 server.on('upgrade', async (request, socket, head) => {
     const { query } = url.parse(request.url, true);
@@ -208,8 +262,40 @@ wss.on('connection', async (ws, request, user) => {
     ws.on('message', (message) => {
         try {
             const { type, payload } = JSON.parse(message);
-            if (type.startsWith('caro:')) handleCaroEvents(ws, type, payload, { clients });
-            else if (type.startsWith('battleship:')) handleBattleshipEvents(ws, type, payload, { clients });
+            
+            if (ws.roomId) {
+                const gameType = ws.roomId.split('_')[0];
+                const gameModule = gameRegistry[gameType];
+                if (!gameModule || !gameModule.games[ws.roomId]) {
+                    ws.roomId = null; 
+                    return;
+                }
+    
+                const game = gameModule.games[ws.roomId];
+                const isFinished = game.status === 'finished' || game.gameState === 'finished';
+    
+                if (isFinished) {
+                    handlePostGameAction(ws, type, payload, { gameRegistry, clients });
+                } else {
+                    if (type === 'game:leave') {
+                        handleLeaveGame(ws, payload, { gameRegistry, clients });
+                    } else if (gameModule.handler) {
+                        gameModule.handler(ws, type, payload, { clients });
+                    }
+                }
+            } else {
+                if (type.endsWith(':find_match') || type.endsWith(':leave')) {
+                    const result = handleLobbyEvent(ws, type, payload, { clients });
+                    if (result && result.player1 && result.player2) {
+                        const gameType = result.gameType;
+                        if (gameRegistry[gameType] && gameRegistry[gameType].create) {
+                            gameRegistry[gameType].create(result.player1, result.player2);
+                        }
+                    }
+                } else if (type === 'game:leave') {
+                    handleLeaveGame(ws, payload, { gameRegistry, clients });
+                }
+            }
         } catch (error) {
             console.error('[WebSocket] Error processing message:', error);
         }
@@ -218,7 +304,6 @@ wss.on('connection', async (ws, request, user) => {
     ws.on('close', () => {
         const username = ws.username || 'Unknown';
         const roomId = ws.roomId;
-        
         clients.delete(username);
         console.log(`[DISCONNECT] Client ${username} disconnected. Total clients: ${clients.size}`);
         
@@ -233,44 +318,7 @@ wss.on('connection', async (ws, request, user) => {
             }
         });
 
-        if (roomId) {
-            if (roomId.startsWith('caro_')) {
-                const game = caroGames[roomId];
-                if (game && game.status === 'playing') {
-                    const opponent = game.players.find(p => p.username !== username);
-                    if (opponent) {
-                        const opponentWs = clients.get(opponent.username);
-                        if (opponentWs && opponentWs.readyState === 1) {
-                            game.status = 'finished';
-                            game.winner = opponent.symbol;
-                            const payload = {
-                                board: game.board, isMyTurn: false, status: 'finished', winner: game.winner, winningLine: [],
-                                disconnectMessage: `Đối thủ "${username}" đã thoát. Bạn đã thắng!`
-                            };
-                            opponentWs.send(JSON.stringify({ type: 'caro:update', payload }));
-                        }
-                    }
-                    delete caroGames[roomId];
-                }
-            } else if (roomId.startsWith('battleship_')) {
-                const game = battleshipGames[roomId];
-                if (game && game.gameState !== 'finished') {
-                    const opponent = game.players.find(p => p.username !== username);
-                    if (opponent) {
-                        const opponentWs = clients.get(opponent.username);
-                        if (opponentWs && opponentWs.readyState === 1) {
-                            game.gameState = 'finished';
-                            game.winner = opponent.username;
-                            opponentWs.send(JSON.stringify({ 
-                                type: 'battleship:game_over', 
-                                payload: { winner: opponent.username, disconnectMessage: `Đối thủ "${username}" đã thoát. Bạn đã thắng!` } 
-                            }));
-                        }
-                    }
-                    delete battleshipGames[roomId];
-                }
-            }
-        }
+        handleDisconnect(username, roomId, { gameRegistry, clients });
     });
 });
 

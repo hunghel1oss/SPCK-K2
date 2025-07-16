@@ -1,3 +1,4 @@
+// src/components/Friends/PendingRequests.jsx
 import React from 'react';
 import { useFriends } from '../../context/FriendsContext';
 
@@ -11,7 +12,6 @@ const PendingRequests = () => {
         <div className="bg-gray-800 p-4 rounded-lg mt-6">
             <h3 className="text-xl font-semibold mb-4 text-white">Yêu cầu đang chờ</h3>
             
-            {/* Yêu cầu nhận được */}
             <div>
                 <h4 className="text-lg font-medium text-gray-300 mb-2">Lời mời kết bạn ({received.length})</h4>
                 {received.length === 0 ? <p className="text-gray-500">Không có lời mời nào.</p> : received.map(req => (
@@ -25,7 +25,6 @@ const PendingRequests = () => {
                 ))}
             </div>
 
-            {/* Yêu cầu đã gửi */}
             <div className="mt-6">
                 <h4 className="text-lg font-medium text-gray-300 mb-2">Đã gửi lời mời ({sent.length})</h4>
                 {sent.length === 0 ? <p className="text-gray-500">Chưa gửi lời mời nào.</p> : sent.map(req => (

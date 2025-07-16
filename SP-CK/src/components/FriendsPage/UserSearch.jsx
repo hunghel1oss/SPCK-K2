@@ -1,3 +1,4 @@
+// src/components/Friends/UserSearch.jsx
 import React, { useState } from 'react';
 import * as api from '../../services/api.js';
 import { useAuth } from '../../context/AuthContext';
@@ -12,7 +13,7 @@ const UserSearch = () => {
     const { friends, requests, sendFriendRequest } = useFriends();
 
     const handleSearch = async (e) => {
-        e.preventDefault(); 
+        e.preventDefault();
         if (!query.trim()) return;
         setIsLoading(true);
         setMessage('');
@@ -46,13 +47,10 @@ const UserSearch = () => {
         if (friends.some(f => f.username === username)) {
             return { text: 'Đã là bạn bè', disabled: true };
         }
-        if (requests.some(r => r.username === username && r.status === 'pending_sent')) {
+        if (requests.some(r => r.username === username)) {
             return { text: 'Đã gửi yêu cầu', disabled: true };
         }
-        if (requests.some(r => r.username === username && r.status === 'pending_received')) {
-            return { text: 'Chấp nhận yêu cầu', disabled: false, action: 'accept' };
-        }
-        return { text: 'Kết bạn', disabled: false, action: 'add' };
+        return { text: 'Kết bạn', disabled: false };
     };
 
     return (
