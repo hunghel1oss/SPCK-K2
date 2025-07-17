@@ -7,7 +7,7 @@ import CombatGrid from '../components/battleship/CombatGrid';
 import PostGameScreen from '../components/game/PostGameScreen';
 import Lobby from '../components/game/Lobby';
 import ChatBox from '../components/chat/ChatBox';
-import OpponentLeftModal from '../components/game/OpponentLeftModal';
+import OpponentLeftModal from '../components/Game/OpponentLeftModal';
 
 const CombatScreenWrapper = ({ myBoard, opponentBoard, isMyTurn, onFireShot, opponentUsername, message }) => (
     <div className="flex flex-col items-center">
