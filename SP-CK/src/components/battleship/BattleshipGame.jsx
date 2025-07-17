@@ -3,7 +3,7 @@ import { useBattleshipSocket } from './useBattleshipSocket'
 import { useRoomChat } from '../chat/useRoomChat'
 import PlacementBoard from './PlacementBoard';
 import CombatGrid from './CombatGrid';
-import PostGameScreen from '../Game/PostGameScreen.jsx'
+import PostGameScreen from '@/Game/PostGameScreen';
 import Lobby from '../caro/Lobby'; 
 import ChatBox from '../chat/ChatBox';
 
