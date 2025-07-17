@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import * as api from '../services/api';
-import * as websocketService from '../services/websocketService'; // Import websocketService
+import * as websocketService from '../services/websocketService'; 
 import { useAuth } from './AuthContext';
 
 const HistoryContext = createContext();
@@ -14,10 +14,8 @@ export const HistoryProvider = ({ children }) => {
     const loadHistory = useCallback(async () => {
         if (isAuthenticated && apiKey) {
             try {
-                console.log("Đang tải lại lịch sử...");
                 const historyData = await api.getHistory(apiKey);
                 setHistory(historyData);
-                console.log("Tải lại lịch sử thành công.");
             } catch (error) {
                 console.error("Lỗi khi tải lịch sử:", error);
                 setHistory([]);
@@ -30,28 +28,25 @@ export const HistoryProvider = ({ children }) => {
     useEffect(() => {
         loadHistory();
 
-        // Lắng nghe sự kiện từ server
         const handleHistoryUpdate = () => {
-            console.log("Nhận được tín hiệu 'history:updated' từ server.");
             loadHistory();
         };
 
         websocketService.on('history:updated', handleHistoryUpdate);
 
-        // Dọn dẹp listener khi component unmount
         return () => {
             websocketService.off('history:updated', handleHistoryUpdate);
         };
 
     }, [loadHistory]);
 
-    const saveGameForUser = async (userApiKey, gameData) => {
-        if (!userApiKey) {
+    const saveGameForUser = async (gameData) => {
+        if (!apiKey) {
             console.error("Không thể lưu lịch sử: API Key không tồn tại.");
             return;
         }
         try {
-            const updatedHistory = await api.saveGameToHistory(userApiKey, gameData);
+            const updatedHistory = await api.saveGameToHistory(apiKey, gameData);
             setHistory(updatedHistory);
         } catch (error) {
             console.error("Không thể lưu lịch sử game lên server:", error);

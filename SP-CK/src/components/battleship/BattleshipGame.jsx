@@ -1,34 +1,41 @@
-import React, { useEffect, useState } from 'react';
-import { useBattleshipSocket } from './useBattleshipSocket';
+import React, { useState, useEffect } from 'react';
+import { useBattleshipSocket } from './useBattleshipSocket'
+import { useRoomChat } from '../chat/useRoomChat'
 import PlacementBoard from './PlacementBoard';
 import CombatGrid from './CombatGrid';
+import PostGameScreen from '../Game/PostGameScreen.jsx'
+import Lobby from '../caro/Lobby'; 
+import ChatBox from '../chat/ChatBox';
 
-const BattleshipLobby = ({ status, onFindMatch, onBack }) => {
-    return (
-        <div className="flex flex-col items-center justify-center min-h-screen">
-            {status === 'waiting' ? (
-                <div className="flex flex-col items-center justify-center bg-gray-800 p-10 rounded-lg shadow-xl text-center">
-                    <h2 className="text-2xl font-bold mb-4 text-blue-400">Đang tìm đối thủ...</h2>
-                    <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 animate-spin border-t-blue-500"></div>
-                </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center bg-gray-800 p-10 rounded-lg shadow-xl">
-                    <h2 className="text-3xl font-bold mb-6 text-blue-400">Phòng chờ Bắn Tàu</h2>
-                    <p className="text-gray-400 mb-8">Sẵn sàng ra khơi và tiêu diệt hạm đội địch?</p>
-                    <button onClick={onFindMatch} className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-4 px-10 rounded-full text-xl transition-all duration-300 transform hover:scale-110 shadow-lg">
-                        Tìm trận
-                    </button>
-                </div>
-            )}
-            <button onClick={onBack} className="mt-8 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">
-                Quay lại
-            </button>
+const CombatScreenWrapper = ({ myBoard, opponentBoard, isMyTurn, onFireShot, opponentUsername, message }) => (
+    <div className="flex flex-col items-center">
+        <div className="h-10 mb-4 text-center">
+            <h3 className={`text-2xl font-bold transition-all ${isMyTurn ? 'text-green-400 animate-pulse' : 'text-gray-500'}`}>
+                {isMyTurn ? 'Lượt của bạn!' : `Đang chờ ${opponentUsername}...`}
+            </h3>
+            {message && <p className="text-xl text-yellow-300 h-8 mt-2">{message}</p>}
         </div>
-    );
-};
+        <div className="flex flex-col lg:flex-row gap-8 items-start mt-4">
+             <CombatGrid board={myBoard} title="Hạm đội của bạn" onCellClick={() => {}} isMyBoard={true} />
+            <CombatGrid board={opponentBoard} title={`Tấn công ${opponentUsername}`} onCellClick={onFireShot} isMyBoard={false} />
+        </div>
+    </div>
+);
+
 
 export const BattleshipGame = ({ onBack }) => {
-    const { gameState, findMatch, placeShips, fireShot } = useBattleshipSocket();
+    const { 
+        gameState, 
+        findMatch, 
+        placeShips, 
+        fireShot,
+        leaveLobby,
+        leaveGame,
+        requestRematch
+    } = useBattleshipSocket();
+
+    const { chatMessages, sendRoomMessage } = useRoomChat(gameState.roomId);
+
     const [message, setMessage] = useState('');
 
     useEffect(() => {
@@ -38,10 +45,10 @@ export const BattleshipGame = ({ onBack }) => {
         if (shotResult.hitter !== gameState.opponent) {
             if (shotResult.result === 'miss') newMessage = 'Bạn đã bắn trượt!';
             if (shotResult.result === 'hit') newMessage = 'Bắn trúng! Tiếp tục bắn.';
-            if (shotResult.result === 'sunk') newMessage = `Chính xác! Đã bắn chìm thuyền ${shotResult.shipInfo?.type || ''} của đối thủ!`;
+            if (shotResult.result === 'sunk') newMessage = `Chính xác! Đã bắn chìm tàu của đối thủ!`;
         } else {
             if (shotResult.result === 'hit') newMessage = `Họ đã bắn trúng!`;
-            if (shotResult.result === 'sunk') newMessage = `Họ đã bắn chìm thuyền ${shotResult.shipInfo?.type || ''} của bạn!`;
+            if (shotResult.result === 'sunk') newMessage = `Họ đã bắn chìm tàu của bạn!`;
         }
         setMessage(newMessage);
         const timer = setTimeout(() => setMessage(''), 4000);
@@ -54,50 +61,57 @@ export const BattleshipGame = ({ onBack }) => {
         }
     };
     
-    if (gameState.status === 'finished') {
-        const didIWin = gameState.winner !== gameState.opponent;
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen text-center">
-                <h2 className={`text-5xl font-bold mb-4 ${didIWin ? 'text-green-400' : 'text-red-500'}`}>
-                    {didIWin ? 'Chiến thắng!' : 'Bạn đã thua!'}
-                </h2>
-                <button onClick={onBack} className="mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl">
-                    Về sảnh chính
-                </button>
-            </div>
-        )
-    }
-
     const renderContent = () => {
         switch (gameState.status) {
             case 'placement':
-                return <PlacementBoard shipsToPlace={gameState.shipsToPlace} onReady={placeShips} />;
+                return <PlacementBoard shipsToPlace={gameState.shipsToPlace} onPlacementComplete={placeShips} />;
             case 'combat':
                 return (
-                    <div className="flex flex-col items-center">
-                        <div className="h-10 mb-4 text-center">
-                            <h3 className={`text-2xl font-bold transition-all ${gameState.isMyTurn ? 'text-green-400 animate-pulse' : 'text-gray-500'}`}>
-                                {gameState.isMyTurn ? 'Lượt của bạn!' : `Đang chờ ${gameState.opponent}...`}
-                            </h3>
-                            {message && <p className="text-xl text-yellow-300 h-8 mt-2">{message}</p>}
-                        </div>
-                        <div className="flex flex-col lg:flex-row gap-8 items-start mt-4">
-                             <CombatGrid board={gameState.myBoard} title="Hạm đội của bạn" onCellClick={() => {}} isMyBoard={true} />
-                            <CombatGrid board={gameState.opponentBoard} title={`Tấn công ${gameState.opponent}`} onCellClick={handleFireShot} isMyBoard={false} />
-                        </div>
-                    </div>
+                    <CombatScreenWrapper
+                        myBoard={gameState.myBoard}
+                        opponentBoard={gameState.opponentBoard}
+                        isMyTurn={gameState.isMyTurn}
+                        onFireShot={handleFireShot}
+                        opponentUsername={gameState.opponent}
+                        message={message}
+                    />
+                );
+            case 'finished':
+                return (
+                     <PostGameScreen 
+                        winner={gameState.winner}
+                        opponent={gameState.opponent}
+                        onRematch={requestRematch}
+                        onLeave={leaveGame}
+                        postGameStatus={gameState.postGameStatus}
+                    />
                 );
             case 'lobby':
             case 'waiting':
             default:
-                return <BattleshipLobby status={gameState.status} onFindMatch={findMatch} onBack={onBack} />;
+                return <Lobby status={gameState.status} onFindMatch={findMatch} onLeaveLobby={leaveLobby} onBack={onBack} />;
         }
     };
+
+    const showChat = ['placement', 'combat', 'finished'].includes(gameState.status);
 
     return (
         <div className="w-full min-h-screen bg-gray-900 text-white p-4 flex flex-col items-center">
             <h1 className="text-4xl font-bold text-center my-4 text-blue-400">Game Bắn Tàu</h1>
-            {renderContent()}
+            <div className="w-full max-w-7xl flex flex-col lg:flex-row gap-8 justify-center items-start">
+                <div className="flex-grow flex justify-center">
+                    {renderContent()}
+                </div>
+                {showChat && (
+                    <div className="w-full lg:w-80 flex-shrink-0">
+                        <ChatBox 
+                            title="Chat Trong Trận"
+                            messages={chatMessages}
+                            onSendMessage={sendRoomMessage}
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

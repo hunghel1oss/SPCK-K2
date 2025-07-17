@@ -20,20 +20,48 @@ export const useBattleshipSocket = () => {
         winner: null,
         postGameStatus: 'none',
     });
+    const [disconnectInfo, setDisconnectInfo] = useState(null);
 
     const updateGameState = useCallback((updates) => {
         setGameState(prev => ({ ...prev, ...updates }));
     }, []);
 
+    const clearDisconnectInfo = useCallback(() => {
+        setDisconnectInfo(null);
+    }, []);
+
     const gameStateRef = useRef(gameState);
-    const matchmakingIdRef = useRef(null);
-    const isRematchingRef = useRef(false);
     
     useEffect(() => {
         gameStateRef.current = gameState;
     });
 
+    const matchmakingIdRef = useRef(null);
+    const isRematchingRef = useRef(false);
+
     useEffect(() => {
+        const handleGameOver = (payload) => {
+            if (payload.disconnectMessage) {
+                setDisconnectInfo(payload.disconnectMessage);
+            }
+            
+            const didIWin = payload.winner === user.username;
+            const opponentUsername = didIWin ? payload.loser : payload.winner;
+
+            if (opponentUsername) {
+                saveGameForUser(apiKey, {
+                    gameName: 'Bắn Tàu',
+                    difficulty: `Online vs ${opponentUsername}`,
+                    result: didIWin ? 'Thắng' : 'Thua',
+                    imageSrc: '/img/battleship.jpg'
+                });
+            }
+
+            if (!payload.disconnectMessage) {
+                updateGameState({ status: 'finished', winner: payload.winner });
+            }
+        };
+
         const handleGameStart = (payload) => {
             isRematchingRef.current = false;
             matchmakingIdRef.current = null;
@@ -49,9 +77,7 @@ export const useBattleshipSocket = () => {
                 postGameStatus: 'none',
             });
         };
-        const handleCombatStart = (payload) => {
-            updateGameState({ status: 'combat', isMyTurn: payload.isMyTurn });
-        };
+        const handleCombatStart = (payload) => updateGameState({ status: 'combat', isMyTurn: payload.isMyTurn });
         const handleGameUpdate = (payload) => {
             setGameState(prev => {
                 const { shotResult, isMyTurn } = payload;
@@ -72,36 +98,15 @@ export const useBattleshipSocket = () => {
                 }
             });
         };
-        const handleGameOver = (payload) => {
-            if (payload.disconnectMessage) alert(payload.disconnectMessage);
-            setGameState(prev => {
-                const didIWin = payload.winner === user.username;
-                const gameResult = {
-                    gameName: 'Bắn Tàu',
-                    difficulty: `Online vs ${prev.opponent}`,
-                    result: didIWin ? 'Thắng' : 'Thua',
-                    imageSrc: '/img/battleship.jpg'
-                };
-                // Tạm thời comment lại dòng lỗi để tập trung vào luồng chính
-                // saveGameForUser(apiKey, gameResult);
-                console.log("Game over, result to save:", gameResult);
-                return { ...prev, status: 'finished', winner: payload.winner };
-            });
-        };
         const handleWaiting = (data) => {
-             if (data && matchmakingIdRef.current === data.matchmakingId) {
+            if (data && matchmakingIdRef.current === data.matchmakingId) {
                 updateGameState({ status: 'waiting' });
             }
         };
         const handleOpponentReady = () => console.log('Đối thủ đã sẵn sàng! Chờ bạn...');
         const handleError = (payload) => alert(`Lỗi từ server: ${payload.message}`);
-
-        const handleWaitingRematch = () => {
-            updateGameState({ postGameStatus: 'waiting_rematch' });
-        };
-        const handleRematchRequested = () => {
-            updateGameState({ postGameStatus: 'rematch_requested' });
-        };
+        const handleWaitingRematch = () => updateGameState({ postGameStatus: 'waiting_rematch' });
+        const handleRematchRequested = () => updateGameState({ postGameStatus: 'rematch_requested' });
         const handleRematchDeclined = (payload) => {
             alert(`Đối thủ ${payload.from} đã rời trận.`);
             updateGameState({ status: 'lobby', roomId: null, postGameStatus: 'none' });
@@ -129,9 +134,9 @@ export const useBattleshipSocket = () => {
             websocketService.off('battleship:waiting_rematch', handleWaitingRematch);
             websocketService.off('battleship:rematch_requested', handleRematchRequested);
             websocketService.off('battleship:rematch_declined', handleRematchDeclined);
-            
+
             const currentState = gameStateRef.current;
-            if (currentState.roomId && !isRematchingRef.current) {
+            if (currentState.roomId && (currentState.status === 'placement' || currentState.status === 'combat')) {
                 websocketService.emit('game:leave', { roomId: currentState.roomId });
             }
         };
@@ -151,7 +156,7 @@ export const useBattleshipSocket = () => {
         }
         updateGameState({ status: 'lobby', roomId: null });
     };
-
+    
     const placeShips = (ships) => {
         const newMyBoard = Array(81).fill(null).map(() => ({ shipId: null, isHit: false }));
         ships.forEach(ship => {
@@ -162,16 +167,35 @@ export const useBattleshipSocket = () => {
         updateGameState({ myBoard: newMyBoard });
         websocketService.emit('battleship:place_ships', { ships });
     };
-    const fireShot = (index) => websocketService.emit('battleship:fire_shot', { index });
+    
+    const fireShot = (index) => {
+        if (gameState.isMyTurn) {
+            websocketService.emit('battleship:fire_shot', { index });
+        }
+    };
+
     const requestRematch = () => {
         isRematchingRef.current = true;
         websocketService.emit('battleship:request_rematch');
     };
+
     const leaveGame = () => {
         isRematchingRef.current = false;
-        websocketService.emit('game:leave', { roomId: gameState.roomId });
+        if(gameState.roomId) {
+            websocketService.emit('game:leave', { roomId: gameState.roomId });
+        }
         updateGameState({ status: 'lobby', roomId: null, postGameStatus: 'none' });
     };
 
-    return { gameState, findMatch, placeShips, fireShot, requestRematch, leaveGame, leaveLobby };
+    return { 
+        gameState, 
+        disconnectInfo, 
+        clearDisconnectInfo,
+        findMatch, 
+        placeShips, 
+        fireShot, 
+        requestRematch, 
+        leaveGame, 
+        leaveLobby 
+    };
 };

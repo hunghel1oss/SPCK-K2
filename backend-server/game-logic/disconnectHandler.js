@@ -14,7 +14,7 @@ function handleDisconnect(username, roomId, { gameRegistry, clients }) {
 
     const game = gameModule.games[roomId];
 
-    if (game && (game.status === 'playing' || (game.gameState && game.gameState !== 'finished'))) {
+    if (game && (game.status !== 'finished' && game.gameState !== 'finished')) {
         const opponent = game.players.find(p => p.username !== username);
 
         if (opponent) {
@@ -38,6 +38,7 @@ function handleDisconnect(username, roomId, { gameRegistry, clients }) {
                     eventType = 'battleship:game_over';
                     eventPayload = {
                         winner: opponent.username,
+                        loser: username,
                         disconnectMessage: `Đối thủ "${username}" đã thoát. Bạn đã thắng!`
                     };
                 }
@@ -45,14 +46,9 @@ function handleDisconnect(username, roomId, { gameRegistry, clients }) {
                 if(eventType && eventPayload) {
                    opponentWs.send(JSON.stringify({ type: eventType, payload: eventPayload }));
                 }
-            
-                console.log(`[DISCONNECT] Clearing roomId for opponent ${opponent.username}. Old roomId: ${opponentWs.roomId}`);
-                opponentWs.roomId = null;
-                console.log(`[DISCONNECT] Opponent's roomId is now: ${opponentWs.roomId}`);
             }
         }
         delete gameModule.games[roomId];
-        console.log(`[DISCONNECT_HANDLER] Cleaned up ${gameType} game room: ${roomId}`);
     }
 }
 

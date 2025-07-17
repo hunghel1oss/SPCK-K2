@@ -1,9 +1,7 @@
-
-
 import React from 'react';
 import { useHistory } from '../../context/HistoryContext';
 import { formatTime } from './time';
-
+import { BASE_URL } from '../../services/api'; // Import BASE_URL
 
 const getResultClass = (result) => {
     switch (result) {
@@ -19,11 +17,11 @@ const getResultClass = (result) => {
 };
 
 export const HistoryDisplay = ({ onBack }) => {
-    const { history, clearHistory } = useHistory();
+    const { history, clearHistoryForUser } = useHistory();
 
     const handleClearHistory = () => {
         if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử không?")) {
-            clearHistory();
+            clearHistoryForUser();
         }
     };
 
@@ -45,40 +43,42 @@ export const HistoryDisplay = ({ onBack }) => {
                 <p className="text-center text-gray-400 mt-8">Chưa có lịch sử nào.</p>
             ) : (
                 <div className="space-y-4">
-                    {history.map((game) => (
-                        <div key={game.id} className="bg-gray-700 p-4 rounded-lg flex items-center gap-4">
+                    {history.map((game) => {
+                        // TẠO ĐƯỜNG DẪN ẢNH ĐẦY ĐỦ Ở ĐÂY
+                        const fullImageSrc = game.imageSrc && game.imageSrc.startsWith('/uploads')
+                            ? `${BASE_URL}${game.imageSrc}`
+                            : game.imageSrc;
 
-                            <img 
-                                src={game.imageSrc || '/default-game-thumbnail.png'} 
-                                alt="Game thumbnail" 
-                                className="w-24 h-24 object-cover rounded-md flex-shrink-0" 
-                            />
-                            <div className="flex-grow">
-                                <p className="font-bold text-lg text-gray-200">{game.gameName || 'Game'}</p>
-                                <p className="text-sm text-gray-400">{game.date}</p>
-                                <p className="text-gray-300">Độ khó: {game.difficulty}</p>
+                        return (
+                            <div key={game.id} className="bg-gray-700 p-4 rounded-lg flex items-center gap-4">
+                                <img 
+                                    src={fullImageSrc || '/default-game-thumbnail.png'} 
+                                    alt="Game thumbnail" 
+                                    className="w-24 h-24 object-cover rounded-md flex-shrink-0" 
+                                />
+                                <div className="flex-grow">
+                                    <p className="font-bold text-lg text-gray-200">{game.gameName || 'Game'}</p>
+                                    <p className="text-sm text-gray-400">{game.date}</p>
+                                    <p className="text-gray-300">Độ khó: {game.difficulty}</p>
+                                </div>
+                                <div className="text-right w-48 flex-shrink-0">
+                                    {game.hasOwnProperty('result') ? (
+                                        <div>
+                                            <p className="text-gray-300 text-lg">Kết quả</p>
+                                            <p className={`font-bold text-2xl ${getResultClass(game.result)}`}>
+                                                {game.result}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <p className="text-gray-300">Số bước: <span className="font-semibold text-white">{game.moves}</span></p>
+                                            <p className="text-gray-300">Thời gian: <span className="font-semibold text-white">{formatTime(game.timeInSeconds)}</span></p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-
-                            
-                            <div className="text-right w-48 flex-shrink-0">
-                                {game.hasOwnProperty('result') ? (
-                                    
-                                    <div>
-                                        <p className="text-gray-300 text-lg">Kết quả</p>
-                                        <p className={`font-bold text-2xl ${getResultClass(game.result)}`}>
-                                            {game.result}
-                                        </p>
-                                    </div>
-                                ) : (
-                                
-                                    <div>
-                                        <p className="text-gray-300">Số bước: <span className="font-semibold text-white">{game.moves}</span></p>
-                                        <p className="text-gray-300">Thời gian: <span className="font-semibold text-white">{formatTime(game.timeInSeconds)}</span></p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>

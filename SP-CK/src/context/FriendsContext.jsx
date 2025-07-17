@@ -29,9 +29,7 @@ export const FriendsProvider = ({ children }) => {
             setOnlineFriends(new Set());
             return;
         }
-
         loadFriendData();
-
         const handleFriendOnline = ({ username }) => {
             setOnlineFriends(prev => {
                 const newSet = new Set(prev);
@@ -49,7 +47,6 @@ export const FriendsProvider = ({ children }) => {
         const handleOnlineList = (onlineUsernames) => {
             setOnlineFriends(new Set(onlineUsernames));
         };
-        
         const handleFriendChange = () => {
             loadFriendData();
         };
@@ -59,7 +56,8 @@ export const FriendsProvider = ({ children }) => {
         websocketService.on('friend:list_online', handleOnlineList);
         websocketService.on('friend:request_received', handleFriendChange);
         websocketService.on('friend:request_accepted', handleFriendChange);
-        websocketService.on('friend:request_declined', handleFriendChange); 
+        websocketService.on('friend:request_declined', handleFriendChange);
+        websocketService.on('friend:removed', handleFriendChange);
 
         return () => {
             websocketService.off('friend:online', handleFriendOnline);
@@ -68,6 +66,7 @@ export const FriendsProvider = ({ children }) => {
             websocketService.off('friend:request_received', handleFriendChange);
             websocketService.off('friend:request_accepted', handleFriendChange);
             websocketService.off('friend:request_declined', handleFriendChange);
+            websocketService.off('friend:removed', handleFriendChange);
         };
     }, [isAuthenticated, apiKey, loadFriendData]);
 
@@ -92,6 +91,20 @@ export const FriendsProvider = ({ children }) => {
             throw error;
         }
     };
+
+    const removeFriend = async (friendUsername) => {
+        if (!window.confirm(`Bạn có chắc muốn xóa ${friendUsername} khỏi danh sách bạn bè không?`)) {
+            return;
+        }
+        try {
+            const res = await api.removeFriend(apiKey, friendUsername);
+            await loadFriendData();
+            alert(res.message);
+        } catch (error) {
+            console.error("Lỗi khi xóa bạn:", error);
+            alert(`Lỗi: ${error.message}`);
+        }
+    };
     
     const value = {
         friends,
@@ -99,6 +112,7 @@ export const FriendsProvider = ({ children }) => {
         onlineFriends,
         sendFriendRequest,
         respondToFriendRequest,
+        removeFriend,
     };
 
     return (

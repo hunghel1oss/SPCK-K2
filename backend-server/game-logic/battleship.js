@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
+const { saveNormalGameEndHistory } = require('./historySaver');
 
 const battleshipGames = {};
 const BOARD_SIZE = 9;
@@ -49,7 +50,7 @@ function resetBattleshipGame(game, { clients }) {
     });
 }
 
-function handleBattleshipEvents(ws, type, payload, { clients }) {
+function handleBattleshipEvents(ws, type, payload, { clients, gameRegistry }) {
     const username = ws.username;
     if (!username || !ws.roomId || !battleshipGames[ws.roomId]) return;
 
@@ -108,7 +109,17 @@ function handleBattleshipEvents(ws, type, payload, { clients }) {
                 newGame.gameState = 'finished';
                 newGame.winner = username;
                 newGame.rematchState = {};
-                const gameOverPayload = { winner: newGame.winner };
+                const loserUsername = updatedTargetPlayer.username;
+
+                saveNormalGameEndHistory(newGame, gameRegistry['battleship'], newGame.winner, loserUsername)
+                    .then(() => {
+                        newGame.players.forEach(p => {
+                            const playerWs = clients.get(p.username);
+                            if (playerWs) playerWs.send(JSON.stringify({ type: 'history:updated' }));
+                        });
+                    });
+
+                const gameOverPayload = { winner: newGame.winner, loser: loserUsername };
                 newGame.players.forEach(p => { const pWs = clients.get(p.username); if (pWs) pWs.send(JSON.stringify({ type: 'battleship:game_over', payload: gameOverPayload })); });
             } else {
                 if (shotResult.result === 'miss') newGame.currentPlayer = updatedTargetPlayer.username;

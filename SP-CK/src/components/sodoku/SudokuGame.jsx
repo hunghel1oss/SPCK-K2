@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSudokuLogic } from './useSudokuLogic';
 import { useTimer, formatTime } from '../main-function/time';
 import { useHistory } from '../../context/HistoryContext';
-import { useAuth } from '../../context/AuthContext';
 import { SudokuBoard } from './SudokuBoard';
 
 const MAX_MISTAKES = 5;
@@ -24,7 +23,6 @@ export const SudokuGame = ({ onBack }) => {
 
     const { time, isRunning, startTimer, stopTimer, resetTimer } = useTimer();
     const { saveGameForUser } = useHistory();
-    const { apiKey } = useAuth();
 
     const startGame = (selectedDifficulty) => {
         setDifficulty(selectedDifficulty);
@@ -36,16 +34,14 @@ export const SudokuGame = ({ onBack }) => {
     const handleWin = useCallback(() => {
         stopTimer();
         setGameState('won');
-        if (apiKey) {
-            saveGameForUser(apiKey, {
-                gameName: 'Sudoku',
-                difficulty: DIFFICULTIES.find(d => d.key === difficulty)?.label || difficulty,
-                moves: moves,
-                timeInSeconds: time,
-                imageSrc: '/sudoku-thumbnail.png'
-            });
-        }
-    }, [difficulty, stopTimer, time, moves, apiKey, saveGameForUser]);
+        saveGameForUser({
+            gameName: 'Sudoku',
+            difficulty: DIFFICULTIES.find(d => d.key === difficulty)?.label || difficulty,
+            moves: moves,
+            timeInSeconds: time,
+            imageSrc: '/img/SudokuImg.png'
+        });
+    }, [difficulty, stopTimer, time, moves, saveGameForUser]);
 
     useEffect(() => {
         if (isComplete && gameState === 'playing') {

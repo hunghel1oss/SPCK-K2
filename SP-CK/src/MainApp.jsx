@@ -6,6 +6,7 @@ import FriendsPage from './components/FriendsPage/FriendsPage.jsx';
 import FriendsSidebar from './components/FriendsPage/FriendsSidebar.jsx';
 import { HistoryDisplay } from './components/main-function/history';
 import { gameList } from './GameList';
+import ChatTray from './components/chat/ChatTray.jsx';
 
 const GameCard = ({ game, onPlay }) => (
     <div className="group relative cursor-pointer overflow-hidden rounded-lg shadow-lg transition-transform transform hover:scale-105" onClick={() => onPlay(game.key)}>
@@ -60,6 +61,7 @@ const MainApp = () => {
                 <main className="flex-grow">{renderContent()}</main>
                 <FriendsSidebar />
             </div>
+            <ChatTray />
         </div>
     );
 }

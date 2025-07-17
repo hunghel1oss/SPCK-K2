@@ -1,4 +1,5 @@
 const API_URL = 'http://localhost:8080/api';
+export const BASE_URL = 'http://localhost:8080';
 
 async function handleResponse(response) {
     if (!response.ok) {
@@ -75,6 +76,14 @@ export const respondToFriendRequest = async (apiKey, requesterUsername, action) 
     return handleResponse(response);
 };
 
+export const removeFriend = async (apiKey, friendUsername) => {
+    const response = await fetch(`${API_URL}/friends/${friendUsername}`, {
+        method: 'DELETE',
+        headers: { 'x-api-key': apiKey },
+    });
+    return handleResponse(response);
+};
+
 export const searchUsers = async (apiKey, query) => {
     const response = await fetch(`${API_URL}/users/search?q=${query}`, {
         headers: { 'x-api-key': apiKey }
@@ -88,3 +97,10 @@ export const validateApiKey = async (apiKey) => {
     }); 
     return handleResponse(response);
 }; 
+
+export const getChatHistory = async (apiKey, friendUsername) => {
+    const response = await fetch(`${API_URL}/chat/${friendUsername}`, {
+        headers: { 'x-api-key': apiKey }
+    });
+    return handleResponse(response);
+};

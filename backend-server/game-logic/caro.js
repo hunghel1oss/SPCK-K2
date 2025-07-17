@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
+const { saveNormalGameEndHistory } = require('./historySaver');
 
 const caroGames = {};
 
@@ -64,7 +65,7 @@ function resetCaroGame(game, { clients }) {
     });
 }
 
-function handleCaroEvents(ws, type, payload, { clients }) {
+function handleCaroEvents(ws, type, payload, { clients, gameRegistry }) {
     const currentUsername = ws.username;
     if (!currentUsername || !ws.roomId || !caroGames[ws.roomId]) return;
 
@@ -79,6 +80,16 @@ function handleCaroEvents(ws, type, payload, { clients }) {
                 game.status = 'finished'; 
                 game.winner = playerInfo.symbol; 
                 game.rematchState = {};
+                
+                const loserInfo = game.players.find(p => p.symbol !== game.winner);
+                saveNormalGameEndHistory(game, gameRegistry['caro'], playerInfo.username, loserInfo.username)
+                    .then(() => {
+                        game.players.forEach(p => {
+                            const playerWs = clients.get(p.username);
+                            if (playerWs) playerWs.send(JSON.stringify({ type: 'history:updated' }));
+                        });
+                    });
+
             } else if (game.board.every(cell => cell !== null)) { 
                 game.status = 'finished'; 
                 game.rematchState = {};

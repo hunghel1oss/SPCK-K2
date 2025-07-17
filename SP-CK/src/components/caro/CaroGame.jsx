@@ -1,54 +1,85 @@
-import React, { useCallback } from 'react';
-import { useHistory } from '../../context/HistoryContext';
-import { useAuth } from '../../context/AuthContext';
-import { useCaroGameSocket } from './useCaroGameSocket';
-import Board from './Board';
-import GameInfo from './GameInfo';
-import Lobby from './Lobby';
+import React from 'react';
+import { useCaroGameSocket } from './useCaroGameSocket.jsx';
+import { useRoomChat } from '../chat/useRoomChat.js';
+import Board from './Board.jsx';
+import GameInfo from './GameInfo.jsx';
+import Lobby from '../game/Lobby.jsx';
+import ChatBox from '../chat/ChatBox.jsx';
+import PostGameScreen from '../game/PostGameScreen';
 
 export const CaroGame = ({ onBack }) => {
-    const { saveGameForUser } = useHistory();
-    const { apiKey } = useAuth();
+    const { 
+        gameState, 
+        findMatch, 
+        makeMove, 
+        requestRematch, 
+        leaveLobby,
+        leaveGame
+    } = useCaroGameSocket();
 
-    const saveCurrentGame = useCallback((gameData) => {
-        if (apiKey) saveGameForUser(apiKey, gameData);
-    }, [apiKey, saveGameForUser]);
+    const { chatMessages, sendRoomMessage } = useRoomChat(gameState.roomId);
 
-    const { gameState, findMatch, makeMove, requestRematch, leaveLobby } = useCaroGameSocket(saveCurrentGame, apiKey);
-    const { status, board, isMyTurn, mySymbol, opponent, winner, winningLine } = gameState;
+    const { status, board, isMyTurn, mySymbol, opponent, winner, winningLine, postGameStatus } = gameState;
 
     const getStatusMessage = () => {
-        if (status === 'finished') {
-            if (winner) return winner === mySymbol ? 'Bạn đã thắng!' : 'Bạn đã thua!';
-            return 'Hòa cờ!';
-        }
         if (status === 'playing') return isMyTurn ? `Lượt của bạn (${mySymbol})` : `Đang chờ ${opponent}...`;
         return 'Đang chờ...';
     };
 
-    const handleBack = () => {
-        if (status === 'waiting') leaveLobby();
-        onBack();
-    }
-
     if (status === 'lobby' || status === 'waiting') {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-                <Lobby status={status} onFindMatch={findMatch} onCancelFind={leaveLobby} />
-                <button onClick={handleBack} className="mt-8 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">Quay lại</button>
+                <Lobby 
+                    gameName="Cờ Caro"
+                    status={status} 
+                    onFindMatch={findMatch} 
+                    onLeaveLobby={leaveLobby} 
+                    onBack={onBack}
+                />
             </div>
         );
     }
+
+    const showChat = ['playing', 'finished'].includes(status);
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
             <h1 className="text-5xl font-bold mb-4 text-cyan-400">Cờ Caro</h1>
             <p className="text-lg mb-8 text-gray-400">Bạn ({mySymbol}) vs {opponent}</p>
-            <div className="flex flex-col lg:flex-row gap-8 items-center">
-                <Board squares={board} onClick={makeMove} winningLine={winningLine} />
-                <GameInfo status={getStatusMessage()} onRematch={status === 'finished' ? requestRematch : null} />
+            
+            <div className="w-full max-w-7xl flex flex-col lg:flex-row gap-8 justify-center items-start">
+                <div className="flex flex-col items-center gap-4 flex-grow">
+                    <Board squares={board} onClick={status === 'playing' ? makeMove : () => {}} winningLine={winningLine} />
+                    {status === 'playing' && <GameInfo status={isMyTurn ? `Lượt của bạn (${mySymbol})` : `Đang chờ ${opponent}...`} />}
+                    {status === 'finished' && (
+                        <div className="mt-4 w-full max-w-md">
+                             <PostGameScreen
+                                isWinner={winner === mySymbol}
+                                isDraw={!winner}
+                                opponent={opponent}
+                                onRematch={requestRematch}
+                                onLeave={leaveGame}
+                                postGameStatus={postGameStatus}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {showChat && (
+                    <div className="w-full lg:w-80 flex-shrink-0">
+                        <ChatBox
+                            title="Chat trong trận"
+                            messages={chatMessages}
+                            onSendMessage={sendRoomMessage}
+                        />
+                    </div>
+                )}
             </div>
-            <button onClick={onBack} className="mt-8 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">Quay lại Thư viện</button>
+            {onBack &&
+                <button onClick={onBack} className="mt-8 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">
+                    Quay lại Thư viện
+                </button>
+            }
         </div>
     );
 };

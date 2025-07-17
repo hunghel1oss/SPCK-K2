@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useTimer, formatTime } from '../main-function/time';
 import { useHistory } from '../../context/HistoryContext';
-import { useAuth } from '../../context/AuthContext';
 import ImageUploader from './ImageUploader';
 import DifficultySelector from './DifficultySelector';
 import PuzzleBoard from './PuzzleBoard';
@@ -29,7 +28,6 @@ const PuzzleGame = () => {
 
     const { time, startTimer, stopTimer, resetTimer } = useTimer();
     const { saveGameForUser } = useHistory();
-    const { apiKey } = useAuth();
     
     const boardSize = 500;
 
@@ -90,15 +88,17 @@ const PuzzleGame = () => {
             stopTimer();
             setIsSolved(true);
 
-            if (apiKey) {
-                saveGameForUser(apiKey, {
-                    gameName: 'Jigsaw Puzzle',
-                    imageSrc: imageSrc,
-                    difficulty: `${difficulty}x${difficulty}`,
-                    moves: currentMoveCount,
-                    timeInSeconds: time,
-                });
-            }
+            const relativeImageSrc = imageSrc.startsWith('http') 
+                ? new URL(imageSrc).pathname 
+                : imageSrc;
+
+            saveGameForUser({
+                gameName: 'Xếp hình',
+                imageSrc: relativeImageSrc,
+                difficulty: `${difficulty}x${difficulty}`,
+                moves: currentMoveCount,
+                timeInSeconds: time,
+            });
         }
     };
     

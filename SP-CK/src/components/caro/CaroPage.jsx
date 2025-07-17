@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import * as websocketService from '../../services/websocketService';
-import { useHistory } from '../../context/HistoryContext';
-import { useAuth } from '../../context/AuthContext';
+import * as websocketService from '/src/services/websocketService.js';
+import { useHistory } from '/src/context/HistoryContext.jsx';
+import { useAuth } from '/src/context/AuthContext.jsx';
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -34,10 +34,6 @@ export const useCaroGameSocket = () => {
     }, []);
 
     useEffect(() => {
-        gameStateRef.current = gameState;
-    });
-
-    useEffect(() => {
         const handleGameStart = (data) => {
             isRematchingRef.current = false;
             matchmakingIdRef.current = null;
@@ -53,25 +49,6 @@ export const useCaroGameSocket = () => {
                 postGameStatus: 'none',
             });
         };
-
-        const handleGameUpdate = (data) => {
-            if (data.disconnectMessage) {
-                alert(data.disconnectMessage);
-            }
-            if (data.status === 'finished' && !data.disconnectMessage) {
-                const isWin = data.winner === gameStateRef.current.mySymbol;
-                const resultText = data.winner ? (isWin ? 'Thắng' : 'Thua') : 'Hòa';
-                
-                saveGameForUser(apiKey, {
-                    gameName: 'Cờ Caro',
-                    difficulty: `Online vs ${gameStateRef.current.opponent}`,
-                    result: resultText,
-                    imageSrc: '/img/caro.jpg'
-                });
-            }
-            updateGameState(data);
-        };
-
         const handleWaiting = (data) => {
             if (data && matchmakingIdRef.current === data.matchmakingId) {
                 updateGameState({ status: 'waiting' });
@@ -81,6 +58,24 @@ export const useCaroGameSocket = () => {
             alert(`Lỗi: ${data.message}`);
             matchmakingIdRef.current = null;
             updateGameState({ status: 'lobby' });
+        };
+        const handleGameUpdate = (data) => {
+            if (data.disconnectMessage) {
+                alert(data.disconnectMessage);
+            }
+            updateGameState(data);
+            if (data.status === 'finished' && !data.disconnectMessage) {
+                const currentState = gameStateRef.current;
+                const isWin = data.winner === currentState.mySymbol;
+                const resultText = data.winner ? (isWin ? 'Thắng' : 'Thua') : 'Hòa';
+                const gameResult = {
+                    gameName: 'Cờ Caro',
+                    difficulty: `Online vs ${currentState.opponent}`,
+                    result: resultText,
+                    imageSrc: '/img/caro.jpg'
+                };
+                saveGameForUser(apiKey, gameResult);
+            }
         };
         const handleWaitingRematch = () => {
             updateGameState({ postGameStatus: 'waiting_rematch' });
@@ -111,7 +106,7 @@ export const useCaroGameSocket = () => {
             websocketService.off('caro:rematch_declined', handleRematchDeclined);
 
             const currentState = gameStateRef.current;
-            if (currentState.roomId && currentState.status === 'playing') {
+            if (currentState.roomId && !isRematchingRef.current) {
                 websocketService.emit('game:leave', { roomId: currentState.roomId });
             }
         };
@@ -133,8 +128,7 @@ export const useCaroGameSocket = () => {
     };
 
     const makeMove = (index) => {
-        const currentState = gameStateRef.current;
-        if (currentState.status === 'playing' && currentState.isMyTurn && !currentState.board[index]) {
+        if (gameState.status === 'playing' && gameState.isMyTurn && !gameState.board[index]) {
             websocketService.emit('caro:move', { index });
         }
     };
@@ -146,10 +140,7 @@ export const useCaroGameSocket = () => {
 
     const leaveGame = () => {
         isRematchingRef.current = false;
-        const currentState = gameStateRef.current;
-        if (currentState.roomId) {
-            websocketService.emit('game:leave', { roomId: currentState.roomId });
-        }
+        websocketService.emit('game:leave', { roomId: gameState.roomId });
         updateGameState({ status: 'lobby', roomId: null, postGameStatus: 'none' });
     };
 
