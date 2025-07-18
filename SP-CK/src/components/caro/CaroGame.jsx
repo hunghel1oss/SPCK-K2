@@ -3,9 +3,9 @@ import { useCaroGameSocket } from './useCaroGameSocket.jsx';
 import { useRoomChat } from '../chat/useRoomChat.js';
 import Board from './Board.jsx';
 import GameInfo from './GameInfo.jsx';
-import Lobby from '../game/Lobby.jsx';
+import Lobby from '../Game/Lobby.jsx';
 import ChatBox from '../chat/ChatBox.jsx';
-import PostGameScreen from '../game/PostGameScreen';
+import PostGameScreen from '../Game/PostGameScreen';
 
 export const CaroGame = ({ onBack }) => {
     const { 
