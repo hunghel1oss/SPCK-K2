@@ -1,8 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const { saveNormalGameEndHistory } = require('./historySaver');
-const { handleCaroEvents, handleMultiplayerGameEnd } = require('../modules/rewardHandler');
-
-await handleMultiplayerGameEnd(winnerUsername, loserUsername, context);
+const { handleMultiplayerGameEnd } = require('../modules/rewardHandler');
 
 const caroGames = {};
 
@@ -41,6 +39,7 @@ function checkWin(board, playerSymbol) {
 function createCaroGame(player1_ws, player2_ws) {
     const roomId = `caro_${uuidv4()}`;
     const game = {
+        roomId,
         players: [{ username: player1_ws.username, symbol: 'X' }, { username: player2_ws.username, symbol: 'O' }],
         board: Array(100).fill(null),
         currentPlayerSymbol: 'X',
@@ -49,8 +48,12 @@ function createCaroGame(player1_ws, player2_ws) {
     caroGames[roomId] = game;
     player1_ws.roomId = roomId;
     player2_ws.roomId = roomId;
-    player1_ws.send(JSON.stringify({ type: 'caro:game_start', payload: { roomId, isMyTurn: true, mySymbol: 'X', board: game.board, opponent: player2_ws.username } }));
-    player2_ws.send(JSON.stringify({ type: 'caro:game_start', payload: { roomId, isMyTurn: false, mySymbol: 'O', board: game.board, opponent: player1_ws.username } }));
+
+    const player1Payload = { type: 'caro:game_start', payload: { roomId, isMyTurn: true, mySymbol: 'X', board: game.board, opponent: player2_ws.username } };
+    const player2Payload = { type: 'caro:game_start', payload: { roomId, isMyTurn: false, mySymbol: 'O', board: game.board, opponent: player1_ws.username } };
+    
+    player1_ws.send(JSON.stringify(player1Payload));
+    player2_ws.send(JSON.stringify(player2Payload));
 }
 
 function resetCaroGame(game, { clients }) {
@@ -62,13 +65,24 @@ function resetCaroGame(game, { clients }) {
 
     game.players.forEach(p => {
         const playerWs = clients.get(p.username);
+        const opponent = game.players.find(op => op.username !== p.username);
         if (playerWs) {
-            playerWs.send(JSON.stringify({ type: 'caro:game_start', payload: { roomId: playerWs.roomId, isMyTurn: p.symbol === 'X', mySymbol: p.symbol, board: game.board, opponent: game.players.find(op => op.username !== p.username).username } }));
+            playerWs.send(JSON.stringify({ 
+                type: 'caro:game_start', 
+                payload: { 
+                    roomId: playerWs.roomId, 
+                    isMyTurn: p.symbol === 'X', 
+                    mySymbol: p.symbol, 
+                    board: game.board, 
+                    opponent: opponent.username 
+                } 
+            }));
         }
     });
 }
 
-function handleCaroEvents(ws, type, payload, { clients, gameRegistry }) {
+async function handleCaroEvents(ws, type, payload, context) {
+    const { clients, gameRegistry, User } = context;
     const currentUsername = ws.username;
     if (!currentUsername || !ws.roomId || !caroGames[ws.roomId]) return;
 
@@ -79,19 +93,23 @@ function handleCaroEvents(ws, type, payload, { clients, gameRegistry }) {
         if (playerInfo && playerInfo.symbol === game.currentPlayerSymbol && !game.board[payload.index] && game.status === 'playing') {
             game.board[payload.index] = playerInfo.symbol;
             const winningLine = checkWin(game.board, playerInfo.symbol);
+
             if (winningLine) { 
                 game.status = 'finished'; 
                 game.winner = playerInfo.symbol; 
                 game.rematchState = {};
                 
                 const loserInfo = game.players.find(p => p.symbol !== game.winner);
-                saveNormalGameEndHistory(game, gameRegistry['caro'], playerInfo.username, loserInfo.username)
-                    .then(() => {
-                        game.players.forEach(p => {
-                            const playerWs = clients.get(p.username);
-                            if (playerWs) playerWs.send(JSON.stringify({ type: 'history:updated' }));
-                        });
+                if (loserInfo) {
+                    const gameEndContext = { clients, User };
+                    await handleMultiplayerGameEnd(playerInfo.username, loserInfo.username, gameEndContext);
+                    await saveNormalGameEndHistory(game, gameRegistry['caro'], playerInfo.username, loserInfo.username, gameEndContext);
+
+                    [playerInfo.username, loserInfo.username].forEach(u => {
+                        const playerWs = clients.get(u);
+                        if (playerWs) playerWs.send(JSON.stringify({ type: 'history:updated' }));
                     });
+                }
 
             } else if (game.board.every(cell => cell !== null)) { 
                 game.status = 'finished'; 
@@ -99,10 +117,20 @@ function handleCaroEvents(ws, type, payload, { clients, gameRegistry }) {
             } else { 
                 game.currentPlayerSymbol = game.currentPlayerSymbol === 'X' ? 'O' : 'X'; 
             }
+
             game.players.forEach(p => {
                 const playerWs = clients.get(p.username);
-                if (playerWs && playerWs.readyState === 1) {
-                    playerWs.send(JSON.stringify({ type: 'caro:update', payload: { board: game.board, isMyTurn: p.symbol === game.currentPlayerSymbol && game.status === 'playing', status: game.status, winner: game.winner || null, winningLine: winningLine || [] } }));
+                if (playerWs) {
+                    playerWs.send(JSON.stringify({ 
+                        type: 'caro:update', 
+                        payload: { 
+                            board: game.board, 
+                            isMyTurn: p.symbol === game.currentPlayerSymbol && game.status === 'playing', 
+                            status: game.status, 
+                            winner: game.winner || null, 
+                            winningLine: winningLine || [] 
+                        } 
+                    }));
                 }
             });
         }
