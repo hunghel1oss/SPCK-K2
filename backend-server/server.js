@@ -185,20 +185,20 @@ app.get('/api/users/search', authenticateUser, async (req, res) => {
     }
 });
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const uploadPath = path.join(__dirname, 'public', 'uploads');
-        require('fs').mkdir(uploadPath, { recursive: true }, () => cb(null, uploadPath));
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
-app.post('/api/upload/puzzle-image', multer({ storage }).single('puzzleImage'), (req, res) => {
-    if (!req.file) return res.status(400).json({ message: 'Không có file nào được tải lên.' });
-    res.status(200).json({ imageUrl: `/uploads/${req.file.filename}` });
-});
+// const storage = multer.diskStorage({
+//     destination: (req, file, cb) => {
+//         const uploadPath = path.join(__dirname, 'public', 'uploads');
+//         require('fs').mkdir(uploadPath, { recursive: true }, () => cb(null, uploadPath));
+//     },
+//     filename: (req, file, cb) => {
+//         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+//         cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+//     }
+// });
+// app.post('/api/upload/puzzle-image', multer({ storage }).single('puzzleImage'), (req, res) => {
+//     if (!req.file) return res.status(400).json({ message: 'Không có file nào được tải lên.' });
+//     res.status(200).json({ imageUrl: `/uploads/${req.file.filename}` });
+// });
 
 app.get('/api/friends', authenticateUser, (req, res) => res.status(200).json(req.user.friends || []));
 app.post('/api/friends/request', authenticateUser, (req, res) => handleFriendRequest(req, res, apiHandlerContext));
