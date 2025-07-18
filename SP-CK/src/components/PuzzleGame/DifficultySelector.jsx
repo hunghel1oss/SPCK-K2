@@ -1,6 +1,6 @@
 import React from "react";
 
-const DIFFICULTIES = [3, 4, 5, 6, 8]; // 3x3, 4x4, 5x5, 6x6, 8x8
+const DIFFICULTIES = [3, 4, 5, 6, 8]; 
 
 const DifficultySelector = ({ onSelect, selected, disabled }) => {
     return (

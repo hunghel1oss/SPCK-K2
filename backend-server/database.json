@@ -7,6 +7,9 @@
     "profile": {
       "createdAt": "2025-07-17T12:32:48.871Z"
     },
+    "elo": 10,
+    "gachaTickets": 0,
+    "claimedFirstMilestone": false,
     "history": [
       {
         "id": "4adca391-29c1-4190-9192-30e70e302bca",
@@ -51,6 +54,9 @@
     "profile": {
       "createdAt": "2025-07-17T12:36:46.507Z"
     },
+    "elo": 10,
+    "gachaTickets": 0,
+    "claimedFirstMilestone": false,
     "history": [
       {
         "id": "3c72d9d3-a252-4543-a1bc-bebf94171548",

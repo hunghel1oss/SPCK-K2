@@ -1,35 +1,20 @@
 const { v4: uuidv4 } = require('uuid');
-const fs = require('fs/promises');
-const path = require('path');
 
-const DB_FILE = path.join(__dirname, '..', 'database.json');
-
-async function readDatabase() {
-    try {
-        const data = await fs.readFile(DB_FILE, 'utf-8');
-        return data ? JSON.parse(data) : {};
-    } catch (error) {
-        if (error.code === 'ENOENT') return {};
-        console.error("Error reading database for history saver:", error);
-        return {};
-    }
-}
-
-async function writeDatabase(data) {
-    await fs.writeFile(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-async function saveSingleRecord(username, gameData) {
+async function saveSingleRecord(username, gameData, { User }) {
     if (!username || !gameData) return false;
     try {
-        const database = await readDatabase();
-        if (!database[username]) return false;
-
-        if (!database[username].history) database[username].history = [];
         const newRecord = { id: uuidv4(), date: new Date().toISOString(), ...gameData };
-        database[username].history.unshift(newRecord);
-        if (database[username].history.length > 20) database[username].history.pop();
-        await writeDatabase(database);
+        await User.updateOne(
+            { username },
+            {
+                $push: {
+                    history: {
+                        $each: [newRecord],
+                        $slice: -20
+                    }
+                }
+            }
+        );
         return true;
     } catch (error) {
         console.error(`[HISTORY_SAVER] Failed to save game for ${username}`, error);
@@ -39,7 +24,7 @@ async function saveSingleRecord(username, gameData) {
 
 function createHistorySavingHandler(originalHandler) {
     return async (leaver, roomIdOrPayload, context) => {
-        const { gameRegistry, clients } = context;
+        const { gameRegistry, clients, User } = context; // Thêm User
 
         const isDisconnect = typeof leaver === 'string';
         const leaverUsername = isDisconnect ? leaver : leaver.username;
@@ -57,29 +42,26 @@ function createHistorySavingHandler(originalHandler) {
                     const opponent = game.players.find(p => p.username !== leaverUsername);
                     if (opponent) {
                         const gameInfo = gameRegistry[gameType];
-                        
+                        const contextWithUser = { User };
+
                         await saveSingleRecord(opponent.username, {
                             gameName: gameInfo.gameName,
                             difficulty: `Online vs ${leaverUsername}`,
                             result: 'Thắng',
                             imageSrc: gameInfo.imageSrc
-                        });
+                        }, contextWithUser);
                         
                         await saveSingleRecord(leaverUsername, {
                             gameName: gameInfo.gameName,
                             difficulty: `Online vs ${opponent.username}`,
                             result: 'Thua',
                             imageSrc: gameInfo.imageSrc
-                        });
+                        }, contextWithUser);
                         
-                        const opponentWs = clients.get(opponent.username);
-                        if (opponentWs && opponentWs.readyState === 1) {
-                            opponentWs.send(JSON.stringify({ type: 'history:updated' }));
-                        }
-                        const leaverWs = clients.get(leaverUsername);
-                        if (leaverWs && leaverWs.readyState === 1) {
-                            leaverWs.send(JSON.stringify({ type: 'history:updated' }));
-                        }
+                        [leaverUsername, opponent.username].forEach(u => {
+                            const ws = clients.get(u);
+                            if(ws) ws.send(JSON.stringify({ type: 'history:updated' }));
+                        });
                     }
                 }
             }
@@ -88,22 +70,23 @@ function createHistorySavingHandler(originalHandler) {
     };
 }
 
-async function saveNormalGameEndHistory(game, gameInfo, winnerUsername, loserUsername) {
+async function saveNormalGameEndHistory(game, gameInfo, winnerUsername, loserUsername, { User }) {
     if (!game || !gameInfo || !winnerUsername || !loserUsername) return;
-    
+    const contextWithUser = { User };
+
     await saveSingleRecord(winnerUsername, {
         gameName: gameInfo.gameName,
         difficulty: `Online vs ${loserUsername}`,
         result: 'Thắng',
         imageSrc: gameInfo.imageSrc
-    });
+    }, contextWithUser);
 
     await saveSingleRecord(loserUsername, {
         gameName: gameInfo.gameName,
         difficulty: `Online vs ${winnerUsername}`,
         result: 'Thua',
         imageSrc: gameInfo.imageSrc
-    });
+    }, contextWithUser);
 }
 
 module.exports = { createHistorySavingHandler, saveNormalGameEndHistory };

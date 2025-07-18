@@ -1,4 +1,3 @@
-// src/components/Friends/FriendsPage.jsx
 import React from 'react';
 import UserSearch from './UserSearch';
 import PendingRequests from './PendingRequests';

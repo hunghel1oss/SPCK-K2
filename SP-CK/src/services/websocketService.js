@@ -12,7 +12,6 @@ const WebSocketState = {
 };
 
 export function connect(apiKey) {
-    // Nếu socket đang tồn tại và KHÔNG ở trạng thái đóng, nghĩa là nó đang mở hoặc đang kết nối. Không làm gì cả.
     if (socket && socket.readyState !== WebSocketState.CLOSED) {
         console.warn('[WebSocket] Connection attempt ignored, socket is already open or connecting.');
         return;
@@ -45,7 +44,6 @@ export function connect(apiKey) {
     socket.onclose = (event) => {
         console.log(`%c[WebSocket] Connection closed. Code: ${event.code}`, 'color: red; font-weight: bold;');
         emitter.emit('disconnect');
-        // Dọn dẹp socket để cho phép kết nối lại
         socket = null;
     };
 
@@ -70,9 +68,7 @@ export function send(eventName, data) {
     }
 }
 
-// Các hàm tiện ích bây giờ sẽ gọi trực tiếp đến module emitter
 export const on = (eventName, callback) => emitter.on(eventName, callback);
 export const off = (eventName, callback) => emitter.off(eventName, callback);
 
-// Đổi tên 'emit' để tránh nhầm lẫn với emit của EventEmitter
 export { send as emit };

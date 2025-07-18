@@ -1,5 +1,8 @@
 const { v4: uuidv4 } = require('uuid');
 const { saveNormalGameEndHistory } = require('./historySaver');
+const { handleCaroEvents, handleMultiplayerGameEnd } = require('../modules/rewardHandler');
+
+await handleMultiplayerGameEnd(winnerUsername, loserUsername, context);
 
 const caroGames = {};
 

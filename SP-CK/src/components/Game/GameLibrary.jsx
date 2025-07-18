@@ -1,7 +1,6 @@
 import React from 'react';
 import GameCard from './GameCard';
-// Đường dẫn bây giờ đơn giản hơn nhiều
-import { gameList } from '/GameList.jsx'; // Bắt đầu từ thư mục gốc của project
+import { gameList } from '/GameList.jsx'; 
 
 const GameLibrary = ({ onPlay }) => {
     return (

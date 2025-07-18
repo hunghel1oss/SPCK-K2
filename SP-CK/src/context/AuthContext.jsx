@@ -8,6 +8,8 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('apiKey'));
     const [isLoading, setIsLoading] = useState(true);
+    const [elo, setElo] = useState(null);
+    const [gachaTickets, setGachaTickets] = useState(0);
 
     const validateAndSetUser = useCallback(async (keyToValidate) => {
         if (!keyToValidate) {
@@ -17,14 +19,17 @@ export const AuthProvider = ({ children }) => {
         
         try {
             const userData = await api.validateApiKey(keyToValidate);
-            setUser(userData);
+            setUser({ username: userData.username });
+            setElo(userData.elo);
+            setGachaTickets(userData.gachaTickets);
             setApiKey(keyToValidate); 
             websocketService.connect(keyToValidate);
         } catch (error) {
-            console.error("API Key không hợp lệ, đang dọn dẹp:", error.message);
             localStorage.removeItem('apiKey');
             setUser(null);
             setApiKey(null);
+            setElo(null);
+            setGachaTickets(0);
         } finally {
             setIsLoading(false);
         }
@@ -32,13 +37,22 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         validateAndSetUser(apiKey);
+
+        const handleRewardsUpdate = (payload) => {
+            setElo(payload.newElo);
+            setGachaTickets(payload.newGachaTickets);
+        };
+        websocketService.on('rewards:updated', handleRewardsUpdate);
+        
+        return () => {
+            websocketService.off('rewards:updated', handleRewardsUpdate);
+        };
     }, [validateAndSetUser]); 
     
     const handleAuthSuccess = async (data) => {
         localStorage.setItem('apiKey', data.apiKey);
         setApiKey(data.apiKey);
-        setUser({ username: data.username });
-        websocketService.connect(data.apiKey);
+        await validateAndSetUser(data.apiKey);
     };
 
     const login = async (username, password) => {
@@ -56,6 +70,8 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('apiKey');
         setUser(null);
         setApiKey(null);
+        setElo(null);
+        setGachaTickets(0);
     };
 
     const value = {
@@ -63,6 +79,8 @@ export const AuthProvider = ({ children }) => {
         apiKey,
         isAuthenticated: !!apiKey,
         isLoading,
+        elo,
+        gachaTickets,
         login,
         register,
         logout,

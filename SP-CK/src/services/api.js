@@ -104,3 +104,12 @@ export const getChatHistory = async (apiKey, friendUsername) => {
     });
     return handleResponse(response);
 };
+
+export const reportSinglePlayerWin = async (apiKey, gameData) => {
+    const response = await fetch(`${API_URL}/v2/single-player/win`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify(gameData),
+    });
+    return handleResponse(response);
+};

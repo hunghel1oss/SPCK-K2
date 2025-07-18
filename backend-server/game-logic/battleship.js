@@ -1,6 +1,10 @@
 const { v4: uuidv4 } = require('uuid');
 const { saveNormalGameEndHistory } = require('./historySaver');
 
+const { handleCaroEvents, handleMultiplayerGameEnd } = require('../modules/rewardHandler');
+
+await handleMultiplayerGameEnd(winnerUsername, loserUsername, context);
+
 const battleshipGames = {};
 const BOARD_SIZE = 9;
 const TOTAL_CELLS = BOARD_SIZE * BOARD_SIZE;

@@ -1,0 +1,36 @@
+# Tệp hệ điều hành
+.DS_Store
+Thumbs.db
+
+# Tệp log
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Các thư mục chứa package đã cài đặt
+# Bỏ qua node_modules ở tất cả các thư mục con
+**/node_modules
+
+# Thư mục build của frontend
+# Tên thư mục frontend của bạn là SP-CK
+# Vite (dùng trong SP-CK) thường build ra thư mục 'dist'
+/SP-CK/dist
+
+# File chứa các biến môi trường và mật khẩu
+# ***CỰC KỲ QUAN TRỌNG***
+.env
+**/.env # Bỏ qua tất cả các file .env
+
+# Tệp cấu hình của các IDE
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Các file tạm của trình test
+/coverage

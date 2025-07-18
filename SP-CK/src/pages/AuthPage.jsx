@@ -19,7 +19,7 @@ const AuthPage = () => {
             } else {
                 await register(username, password);
             }
-            // App.jsx sẽ tự động render lại và chuyển trang
+        
         } catch (err) {
             setError(err.message || 'Đã xảy ra lỗi. Vui lòng thử lại.');
         } finally {
