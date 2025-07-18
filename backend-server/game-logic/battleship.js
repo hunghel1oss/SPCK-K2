@@ -1,9 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const { saveNormalGameEndHistory } = require('./historySaver');
-
-const { handleCaroEvents, handleMultiplayerGameEnd } = require('../modules/rewardHandler');
-
-await handleMultiplayerGameEnd(winnerUsername, loserUsername, context);
+const { handleMultiplayerGameEnd } = require('../modules/rewardHandler');
 
 const battleshipGames = {};
 const BOARD_SIZE = 9;
@@ -54,7 +51,8 @@ function resetBattleshipGame(game, { clients }) {
     });
 }
 
-function handleBattleshipEvents(ws, type, payload, { clients, gameRegistry }) {
+async function handleBattleshipEvents(ws, type, payload, context) {
+    const { clients, gameRegistry, User } = context;
     const username = ws.username;
     if (!username || !ws.roomId || !battleshipGames[ws.roomId]) return;
 
@@ -65,27 +63,32 @@ function handleBattleshipEvents(ws, type, payload, { clients, gameRegistry }) {
             if (currentGame.gameState !== 'placement') return;
             const playerIndex = currentGame.players.findIndex(p => p.username === username);
             if (playerIndex === -1 || currentGame.players[playerIndex].isReady) return;
+
             const newBoard = createEmptyBoard();
-            payload.ships.forEach(ship => { ship.positions.forEach(pos => { if (pos >= 0 && pos < TOTAL_CELLS) newBoard[pos].shipId = ship.id; }); });
+            payload.ships.forEach(ship => {
+                ship.positions.forEach(pos => {
+                    if (pos >= 0 && pos < TOTAL_CELLS) {
+                        newBoard[pos].shipId = ship.id;
+                    }
+                });
+            });
+            
             const updatedPlayer = { ...currentGame.players[playerIndex], isReady: true, ships: payload.ships, board: newBoard };
             const newPlayers = currentGame.players.map((p, index) => index === playerIndex ? updatedPlayer : p);
             const newGame = { ...currentGame, players: newPlayers };
             battleshipGames[ws.roomId] = newGame;
+
             const opponent = newGame.players.find(p => p.username !== username);
             if (opponent && opponent.isReady) {
                 newGame.gameState = 'combat';
                 newGame.currentPlayer = Math.random() < 0.5 ? username : opponent.username;
                 newGame.players.forEach(p => {
                     const pWs = clients.get(p.username);
-                    if (pWs && pWs.readyState === 1) {
-                        pWs.send(JSON.stringify({ type: 'battleship:combat_start', payload: { isMyTurn: p.username === newGame.currentPlayer } }));
-                    }
+                    if (pWs) pWs.send(JSON.stringify({ type: 'battleship:combat_start', payload: { isMyTurn: p.username === newGame.currentPlayer } }));
                 });
             } else if (opponent) {
                 const opponentWs = clients.get(opponent.username);
-                if (opponentWs && opponentWs.readyState === 1) {
-                    opponentWs.send(JSON.stringify({ type: 'battleship:opponent_ready' }));
-                }
+                if (opponentWs) opponentWs.send(JSON.stringify({ type: 'battleship:opponent_ready' }));
             }
             break;
         }
@@ -93,11 +96,14 @@ function handleBattleshipEvents(ws, type, payload, { clients, gameRegistry }) {
             if (currentGame.gameState !== 'combat' || currentGame.currentPlayer !== username) return;
             const targetIndex = currentGame.players.findIndex(p => p.username !== username);
             if (targetIndex === -1) return;
+            
             const targetPlayer = currentGame.players[targetIndex];
             const targetCellIndex = payload.index;
             if (targetCellIndex == null || targetPlayer.board[targetCellIndex].isHit) return;
+            
             const updatedTargetBoard = targetPlayer.board.map((cell, index) => index === targetCellIndex ? { ...cell, isHit: true } : cell);
             let shotResult = { hitter: username, targetIndex: targetCellIndex, result: 'miss' };
+
             if (updatedTargetBoard[targetCellIndex].shipId) {
                 shotResult.result = 'hit';
                 const hitShip = targetPlayer.ships.find(s => s.id === updatedTargetBoard[targetCellIndex].shipId);
@@ -106,27 +112,32 @@ function handleBattleshipEvents(ws, type, payload, { clients, gameRegistry }) {
                     shotResult.shipInfo = { type: hitShip.type, positions: hitShip.positions };
                 }
             }
+
             const updatedTargetPlayer = { ...targetPlayer, board: updatedTargetBoard };
             const newPlayers = currentGame.players.map((p, index) => index === targetIndex ? updatedTargetPlayer : p);
             let newGame = { ...currentGame, players: newPlayers };
+
             if (updatedTargetPlayer.ships.every(ship => ship.positions.every(pos => updatedTargetPlayer.board[pos].isHit))) {
                 newGame.gameState = 'finished';
                 newGame.winner = username;
                 newGame.rematchState = {};
                 const loserUsername = updatedTargetPlayer.username;
 
-                saveNormalGameEndHistory(newGame, gameRegistry['battleship'], newGame.winner, loserUsername)
-                    .then(() => {
-                        newGame.players.forEach(p => {
-                            const playerWs = clients.get(p.username);
-                            if (playerWs) playerWs.send(JSON.stringify({ type: 'history:updated' }));
-                        });
-                    });
+                const gameEndContext = { clients, User };
+                await handleMultiplayerGameEnd(newGame.winner, loserUsername, gameEndContext);
+                await saveNormalGameEndHistory(newGame, gameRegistry['battleship'], newGame.winner, loserUsername, gameEndContext);
+                
+                [newGame.winner, loserUsername].forEach(u => {
+                    const playerWs = clients.get(u);
+                    if (playerWs) playerWs.send(JSON.stringify({ type: 'history:updated' }));
+                });
 
                 const gameOverPayload = { winner: newGame.winner, loser: loserUsername };
                 newGame.players.forEach(p => { const pWs = clients.get(p.username); if (pWs) pWs.send(JSON.stringify({ type: 'battleship:game_over', payload: gameOverPayload })); });
+            
             } else {
                 if (shotResult.result === 'miss') newGame.currentPlayer = updatedTargetPlayer.username;
+                
                 const gameUpdatePayload = { shotResult: shotResult, isMyTurn: false };
                 newGame.players.forEach(p => {
                     const pWs = clients.get(p.username);
