@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import PlacementBoard from '../components/battleship/PlacementBoard';
 import CombatGrid from '../components/battleship/CombatGrid';
 import PostGameScreen from '../components/Game/PostGameScreen';
-import Lobby from '../components/game/Lobby';
+import Lobby from '../components/Game/Lobby';
 import ChatBox from '../components/chat/ChatBox';
 import OpponentLeftModal from '../components/Game/OpponentLeftModal';
 
