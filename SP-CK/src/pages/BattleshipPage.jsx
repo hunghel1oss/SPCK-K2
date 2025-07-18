@@ -4,10 +4,10 @@ import { useRoomChat } from '../components/chat/useRoomChat';
 import { useAuth } from '../context/AuthContext';
 import PlacementBoard from '../components/battleship/PlacementBoard';
 import CombatGrid from '../components/battleship/CombatGrid';
-import PostGameScreen from '../components/Game/PostGameScreen';
-import Lobby from '../components/Game/Lobby';
+import PostGameScreen from '../components/game/PostGameScreen';
+import Lobby from '../components/game/Lobby';
 import ChatBox from '../components/chat/ChatBox';
-import OpponentLeftModal from '../components/Game/OpponentLeftModal';
+import OpponentLeftModal from '../components/game/OpponentLeftModal';
 
 const CombatScreenWrapper = ({ myBoard, opponentBoard, isMyTurn, onFireShot, opponentUsername, message }) => (
     <div className="flex flex-col items-center">
