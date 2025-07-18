@@ -203,8 +203,8 @@ app.post('/api/upload/puzzle-image', multer({ storage }).single('puzzleImage'), 
 app.get('/api/friends', authenticateUser, (req, res) => res.status(200).json(req.user.friends || []));
 app.post('/api/friends/request', authenticateUser, (req, res) => handleFriendRequest(req, res, apiHandlerContext));
 app.post('/api/friends/respond', authenticateUser, (req, res) => handleFriendResponse(req, res, apiHandlerContext));
-app.delete('/api/friends/:friendUsername', authenticateUser, (req, res) => handleRemoveFriend(req, res, apiHandlerContext));
-app.get('/api/chat/:friendUsername', authenticateUser, (req, res) => getChatHistory(req, res, apiHandlerContext));
+// app.delete('/api/friends/:friendUsername', authenticateUser, (req, res) => handleRemoveFriend(req, res, apiHandlerContext));
+// app.get('/api/chat/:friendUsername', authenticateUser, (req, res) => getChatHistory(req, res, apiHandlerContext));
 
 const apiRoutes = createApiRoutes(clients, User);
 // app.use('/api/v2', authenticateUser, apiRoutes);
