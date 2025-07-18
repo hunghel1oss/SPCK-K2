@@ -192,8 +192,8 @@ app.post('/api/friends/respond', authenticateUser, (req, res) => handleFriendRes
 app.delete('/api/friends/:friendUsername', authenticateUser, (req, res) => handleRemoveFriend(req, res, apiHandlerContext));
 app.get('/api/chat/:friendUsername', authenticateUser, (req, res) => getChatHistory(req, res, apiHandlerContext));
 
-// const apiRoutes = createApiRoutes(clients, User);
-// app.use('/api/v2', authenticateUser, apiRoutes);
+const apiRoutes = createApiRoutes(clients, User);
+app.use('/api/v2', authenticateUser, apiRoutes);
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'SP-CK', 'dist', 'index.html'));
