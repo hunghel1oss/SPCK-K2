@@ -7,13 +7,21 @@ const url = require('url');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const { v4: uuidv4 } = require('uuid');
-// const multer = require('multer'); // Tạm thời vô hiệu hóa
 const mongoose = require('mongoose');
 
 // --- TẤT CẢ CÁC FILE LOGIC CỦA BẠN ĐÃ BỊ VÔ HIỆU HÓA ---
 // const { handleCaroEvents, caroGames, createCaroGame, resetGame: resetCaroGame } = require('./game-logic/caro.js');
 // const { handleBattleshipEvents, battleshipGames, createBattleshipGame, resetGame: resetBattleshipGame } = require('./game-logic/battleship.js');
-// ... và các file khác
+// const { handleDisconnect: originalDisconnectHandler } = require('./game-logic/disconnectHandler.js');
+// const { handleLobbyEvent } = require('./game-logic/matchmakingHandler.js');
+// const { handleLeaveGame: originalLeaveHandler } = require('./game-logic/gameSessionHandler.js');
+// const { handlePostGameAction } = require('./game-logic/postGameActionHandler.js');
+// const { handleFriendRequest, handleFriendResponse, handleRemoveFriend } = require('./game-logic/friendActions.js');
+// const { handleDirectMessage, getChatHistory } = require('./game-logic/chatHandler.js');
+// const { createHistorySavingHandler } = require('./game-logic/historySaver.js');
+// const { createApiRoutes } = require('./modules/apiRoutes.js');
+// const { ELO_STARTING_POINT } = require('./modules/rewardHandler.js');
+
 
 // --- MongoDB Connection & Models ---
 const MONGO_URI = process.env.MONGO_URI;
@@ -21,7 +29,7 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('>>> MongoDB connected successfully!'))
   .catch(err => console.error('>>> MongoDB connection error:', err));
 
-const ELO_STARTING_POINT = 1000;
+const ELO_STARTING_POINT = 1000; // Định nghĩa tạm thời vì file require đã bị comment
 
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -29,9 +37,15 @@ const userSchema = new mongoose.Schema({
         password: { type: String, required: true },
         apiKey: { type: String, required: true, unique: true }
     },
-    // Các trường khác được lược bỏ để đơn giản hóa
+    profile: { createdAt: { type: Date, default: Date.now } },
+    elo: { type: Number, default: ELO_STARTING_POINT },
+    gachaTickets: { type: Number, default: 0 },
+    claimedFirstMilestone: { type: Boolean, default: false },
+    history: { type: Array, default: [] },
+    friends: { type: Array, default: [] }
 }, { timestamps: true });
 const User = mongoose.model('User', userSchema);
+
 
 // --- Express App Setup ---
 const app = express();
@@ -40,6 +54,7 @@ const server = http.createServer(app);
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'SP-CK', 'dist')));
+
 
 // --- Middleware ---
 async function authenticateUser(req, res, next) {
